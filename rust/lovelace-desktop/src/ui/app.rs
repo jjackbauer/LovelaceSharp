@@ -374,6 +374,16 @@ pub struct WorkbenchApp {
     quick_eval: QuickEval,
     /// The quick-eval field's last painted rectangle, used by the pointer-focus test.
     quick_eval_rect: Option<Rect>,
+    /// RUN-019: the toolbar's precision text field, its last validation error and the document
+    /// precision it was last synchronised from.
+    ///
+    /// The text is kept instead of a numeric spin box so an invalid value can be rejected with
+    /// guidance. `precision_seen` is what makes RUN-020 work: when a script's `setprecision(n)`
+    /// changes the document precision, the next frame notices it differs from `precision_seen`
+    /// and rewrites the field, so the control always shows the active precision.
+    precision_input: String,
+    precision_error: Option<String>,
+    precision_seen: usize,
     layout: Option<PaneLayout>,
     /// True once the window has moved keyboard focus into the editor on its first frame.
     focus_requested: bool,
@@ -510,6 +520,7 @@ impl WorkbenchApp {
         let view = workbench.active_view();
         let variables_table = VariableTable::new(&view.state);
         let functions_table = FunctionTable::new(&view.state);
+        let workbench_precision = workbench.active_document().precision;
         let recovery = match &storage.recovery_root {
             Some(root) => RecoveryJournal::new(root.clone()),
             None => RecoveryJournal::disabled(),
@@ -554,6 +565,9 @@ impl WorkbenchApp {
             function_header_rects: [None; 3],
             quick_eval: QuickEval::new(),
             quick_eval_rect: None,
+            precision_input: workbench_precision.to_string(),
+            precision_error: None,
+            precision_seen: workbench_precision,
             layout: None,
             focus_requested: false,
             trace_pending: false,
@@ -594,6 +608,15 @@ impl WorkbenchApp {
         // RUN-003: assemble the frame's pane state once, from the same committed snapshot the
         // poll above applied. Every pane below renders this value, not a fresh workbench lookup.
         self.view = self.workbench.active_view();
+        // RUN-020: a `setprecision(n)` statement moves the document precision; when it differs
+        // from the value the control was last synchronised from, the control is rewritten. The
+        // user's in-progress text is only replaced when the *document* actually changed, so an
+        // invalid entry is not silently overwritten on the next frame.
+        if self.view.precision != self.precision_seen {
+            self.precision_seen = self.view.precision;
+            self.precision_input = self.view.precision.to_string();
+            self.precision_error = None;
+        }
         // WKS-001/WKS-002: the tables are rebuilt from the same committed capture the frame
         // renders, keeping the user's chosen sort across runs and tab switches.
         self.variables_table.rebuild(&self.view.state);
@@ -1597,23 +1620,45 @@ impl WorkbenchApp {
             }
             ui.separator();
 
+            // RUN-019: one visibly labelled precision input. It accepts text so an invalid value
+            // is rejected with guidance instead of being silently clamped by a spinner; the
+            // document precision is only changed when the value is valid.
             ui.label(RichText::new("Precision").color(DIM));
-            let mut precision = self.workbench.active_document().precision;
-            let response = ui.add(
-                egui::DragValue::new(&mut precision)
-                    .range(MIN_PRECISION..=MAX_PRECISION)
-                    .speed(1.0),
-            );
-            if response.changed() {
-                self.workbench.set_active_precision(precision);
+            let field = ui
+                .add(
+                    egui::TextEdit::singleline(&mut self.precision_input)
+                        .desired_width(64.0)
+                        .hint_text("digits"),
+                )
+                .on_hover_text(format!(
+                    "Display precision for the active document: a whole number of digits from {MIN_PRECISION} to {MAX_PRECISION}"
+                ));
+            let apply = ui
+                .add(egui::Button::new("Apply"))
+                .on_hover_text("Apply the typed precision to the active document");
+            let submitted = apply.clicked()
+                || (field.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)));
+            if submitted {
+                match self
+                    .workbench
+                    .set_active_precision_text(&self.precision_input)
+                {
+                    Ok(decimals) => {
+                        self.precision_seen = decimals;
+                        self.precision_input = decimals.to_string();
+                        self.precision_error = None;
+                    }
+                    Err(guidance) => self.precision_error = Some(guidance),
+                }
             }
             ui.label(
-                RichText::new(format!(
-                    "{} digits",
-                    self.workbench.active_document().precision
-                ))
-                .color(DIM),
-            );
+                RichText::new(format!("{} digits", self.view.precision)).color(DIM),
+            )
+            .on_hover_text("The active document's applied display precision");
+            if let Some(guidance) = &self.precision_error {
+                ui.label(RichText::new(guidance).color(ERROR))
+                    .on_hover_text("The precision was not changed; the run uses the last valid value.");
+            }
             ui.separator();
 
             let active = self.workbench.active();
@@ -1643,7 +1688,7 @@ impl WorkbenchApp {
                 .workbench
                 .documents()
                 .iter()
-                .map(|document| document.title_with_marker())
+                .map(|document| document.tab_label())
                 .collect();
             for (index, title) in tabs.iter().enumerate() {
                 let selected = index == self.workbench.active();
@@ -1779,7 +1824,7 @@ impl WorkbenchApp {
                             .monospace()
                             .color(ERROR),
                     )
-                    .on_hover_text(diagnostic.render());
+                    .on_hover_text(diagnostic.render_fully());
                 }
                 // The popup itself is painted; the header states its selected signature so the
                 // completion also exists in the accessibility tree and in a UIA capture.
@@ -2075,14 +2120,29 @@ impl WorkbenchApp {
         let has_snapshot = view.has_snapshot;
         // RUN-003: the pane states the revision and committed prefix it is showing, from the
         // same DocumentView as the variables below it. The status strip reports the live buffer
-        // revision; this line reports the committed snapshot's revision.
+        // revision; this line reports the committed snapshot's revision. RUN-012: a snapshot
+        // whose revision is older than the buffer's (or a display the state machine marked Stale)
+        // is labelled, never silently presented as the current result.
+        let stale = view.run_state == crate::run_state::RunState::Stale
+            || (has_snapshot && view.revision.0 < view.buffer_revision.0);
         let state_line = if has_snapshot {
             format!(
-                "rev {} · committed {}/{}",
-                view.revision.0, view.committed_steps, view.total
+                "rev {} · committed {}/{}{}",
+                view.revision.0,
+                view.committed_steps,
+                view.total,
+                if stale {
+                    " · STALE: not the current source"
+                } else {
+                    ""
+                }
             )
         } else {
-            format!("rev {} · no committed statement", view.revision.0)
+            format!(
+                "rev {} · no committed statement{}",
+                view.revision.0,
+                if stale { " · STALE" } else { "" }
+            )
         };
         let mut filter = self.filter.clone();
         // WKS-001/WKS-002: the table rows, their counts and their sort state all come from the
@@ -3330,14 +3390,24 @@ fn log_kind_legend() -> String {
 }
 
 /// One-line summary of a failed run's diagnostic for the editor pane header.
+///
+/// RUN-014: the header carries every field the row names — code, category, message, line and
+/// column — compactly enough for a pane header. Suggestions are stated in the hover text and in
+/// the log, where there is room for the whole list.
 fn diagnostic_summary(diagnostic: &Diagnostic) -> String {
     let message = diagnostic.message.lines().next().unwrap_or_default();
     let mut short: String = message.chars().take(70).collect();
     if message.chars().count() > 70 {
         short.push('…');
     }
+    let class = match (&diagnostic.code, &diagnostic.category) {
+        (Some(code), Some(category)) => format!("{code} ({category}) · "),
+        (Some(code), None) => format!("{code} · "),
+        (None, Some(category)) => format!("({category}) · "),
+        (None, None) => String::new(),
+    };
     format!(
-        "Diagnostic Ln {}, Col {}: {}",
+        "Diagnostic {class}Ln {}, Col {}: {}",
         diagnostic.line, diagnostic.column, short
     )
 }
@@ -4916,6 +4986,9 @@ mod tests {
             logs: Vec::new(),
             diagnostic: None,
             run_state: RunState::Idle,
+            buffer_revision: crate::execution::SourceRevision(1),
+            progress: String::new(),
+            precision: crate::engine::DEFAULT_PRECISION,
             elapsed_ms: 0,
         }
     }

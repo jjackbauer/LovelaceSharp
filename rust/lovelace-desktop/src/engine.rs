@@ -25,6 +25,8 @@ use lovelace_json::Json;
 // used by the tests; with the real engine enabled the only non-test use is the factory below.
 #[cfg_attr(not(test), allow(dead_code))]
 mod fake;
+/// RUN-017: the opt-in fault-injection evaluator used by the acceptance capture.
+pub mod fault;
 #[cfg(feature = "real-engine")]
 pub mod inspection;
 #[cfg(feature = "real-engine")]
@@ -327,6 +329,33 @@ pub struct RunOutput {
     pub plot: Option<PlotCapture>,
 }
 
+/// The engine's structured classification of a failed evaluation (RUN-014).
+///
+/// `lovelace_lang::LangError` publishes a stable wire code, a stable wire category and the
+/// closest registered names for an unresolved call. The desktop's [`Evaluator::eval`] contract
+/// carries only the message string, so an engine that has the richer record publishes it through
+/// [`Evaluator::last_error`] and the execution core attaches it to the [`crate::execution::Diagnostic`].
+/// An engine that publishes none (the deterministic fake, a minimal third-party evaluator) leaves
+/// it `None` and the diagnostic shows its message and position only — never an invented code.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct EngineError {
+    /// The engine's stable wire code (for example `UndefinedVariable`).
+    pub code: String,
+    /// The engine's stable wire category (for example `NameError`).
+    pub category: String,
+    /// Closest registered names, for an unresolved name.
+    pub suggestions: Vec<String>,
+    /// Syntax notes that apply to the failure.
+    pub hints: Vec<String>,
+}
+
+impl EngineError {
+    /// True when the record names neither a code nor a category.
+    pub fn is_empty(&self) -> bool {
+        self.code.is_empty() && self.category.is_empty()
+    }
+}
+
 /// An engine instance owned by one document.
 ///
 /// The only required method is the contract's eval. Everything else has a default so that a
@@ -335,6 +364,15 @@ pub struct RunOutput {
 pub trait Evaluator {
     /// Evaluates a script and returns its display form, or an error message.
     fn eval(&mut self, src: &str) -> Result<String, String>;
+
+    /// The engine's structured classification of the failure the most recent [`Self::eval`]
+    /// returned, when the engine publishes one (RUN-014).
+    ///
+    /// The default is `None`: a diagnostic from an engine without this seam carries the message
+    /// and position only.
+    fn last_error(&self) -> Option<EngineError> {
+        None
+    }
 
     /// Evaluates a script and snapshots everything the panes need, even on failure.
     fn eval_full(&mut self, src: &str) -> RunOutput {
@@ -533,15 +571,29 @@ pub trait Evaluator {
 pub type EngineFactory = fn() -> Box<dyn Evaluator>;
 
 /// The engine a document gets by default.
+///
+/// RUN-017: `LOVELACE_ENGINE_FAULT=panic-once` swaps in the fault-injecting evaluator so the
+/// recovery path can be driven through the shipped window. The switch is read once, when a
+/// document's factory is built, and is off unless the variable is set.
 #[cfg(not(feature = "real-engine"))]
 pub fn default_engine_factory() -> EngineFactory {
-    fake::boxed
+    if fault::panic_once_requested() {
+        fault::boxed
+    } else {
+        fake::boxed
+    }
 }
 
 /// The engine a document gets by default.
+///
+/// RUN-017: see the no-`real-engine` variant; the fault switch is identical.
 #[cfg(feature = "real-engine")]
 pub fn default_engine_factory() -> EngineFactory {
-    real::boxed
+    if fault::panic_once_requested() {
+        fault::boxed
+    } else {
+        real::boxed
+    }
 }
 
 #[cfg(test)]

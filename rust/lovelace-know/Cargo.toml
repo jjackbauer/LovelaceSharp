@@ -1,0 +1,23 @@
+[package]
+name = "lovelace-know"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "lovelace-know"
+path = "src/main.rs"
+
+[dependencies]
+lovelace-json = { path = "../lovelace-json" }
+lovelace-nat = { path = "../lovelace-nat" }
+lovelace-int = { path = "../lovelace-int" }
+
+[dev-dependencies]
+lovelace-json = { path = "../lovelace-json" }
+lovelace-int = { path = "../lovelace-int" }
+lovelace-nat = { path = "../lovelace-nat" }
+
+[lints]
+workspace = true

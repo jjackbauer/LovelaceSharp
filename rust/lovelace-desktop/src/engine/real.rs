@@ -12,7 +12,7 @@
 //! registered. Rebuilding the engine would have cleared both and is no longer what the command
 //! does.
 
-use super::{CachedValue, EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture};
+use super::{CachedValue, EngineError, EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture};
 use lovelace_json::Json;
 
 /// Creates a boxed RealEngine.
@@ -38,6 +38,13 @@ pub struct RealEngine {
     /// INC-001: the engine's own `Value` for that same `eval`, kept so the incremental cache can
     /// re-apply the typed value to the next run's engine instead of re-parsing a display string.
     last_value: Option<lovelace_lang::Value>,
+    /// RUN-014: the engine's structured record for the last failed `eval`.
+    ///
+    /// `lovelace_lang::LangError` carries the stable code, category, suggestions and hints. The
+    /// versioned `Evaluator::eval` contract returns the message only, so this field is the seam
+    /// that keeps the rest of the record (EVD-031: the oracle publishes an empty code; the Rust
+    /// engine publishes one and the diagnostic must show it rather than drop it).
+    last_error: Option<EngineError>,
 }
 
 impl RealEngine {
@@ -48,6 +55,7 @@ impl RealEngine {
             last_structured: None,
             last_inspection: None,
             last_value: None,
+            last_error: None,
         }
     }
 }
@@ -64,6 +72,7 @@ impl Evaluator for RealEngine {
         self.last_structured = None;
         self.last_inspection = None;
         self.last_value = None;
+        self.last_error = None;
         match self.engine.eval(src) {
             Ok(value) => {
                 // RES-001: the engine's own structured projection, the same function the CLI
@@ -81,8 +90,22 @@ impl Evaluator for RealEngine {
                 self.last_value = Some(value.clone());
                 Ok(self.engine.format(&value))
             }
-            Err(error) => Err(error.message),
+            Err(error) => {
+                // RUN-014: keep the whole record, not only the message. The engine publishes a
+                // stable wire code, a stable category and the closest registered names.
+                self.last_error = Some(EngineError {
+                    code: error.code.to_string(),
+                    category: error.category.to_string(),
+                    suggestions: error.suggestions.clone(),
+                    hints: error.hints.clone(),
+                });
+                Err(error.message)
+            }
         }
+    }
+
+    fn last_error(&self) -> Option<EngineError> {
+        self.last_error.clone()
     }
 
     fn last_structured(&self) -> Option<Json> {

@@ -1,0 +1,126 @@
+{
+ "schemaVersion": 1,
+ "title": "Lovelace knowledge graph (GraphStore v1)",
+ "source": "generated from Lovelace.Knowledge/Model.cs and knowledge-graph-demo.json by parity/tools/ecosystem-inventory.mjs",
+ "rootType": "Graph",
+ "requiredTopLevel": [
+  "boundaries",
+  "config",
+  "frontiers",
+  "metrics",
+  "planes",
+  "samples",
+  "seed",
+  "version"
+ ],
+ "properties": {
+  "seed": {
+   "type": "integer"
+  },
+  "version": {
+   "const": 1
+  },
+  "config": {
+   "type": "object",
+   "requiredKeys": [
+    "batchSize",
+    "c1NewPlaneRateThreshold",
+    "c1WindowBatches",
+    "c2MinConfirmations",
+    "c3AgreementThreshold",
+    "c4MinSupportPerPlane",
+    "integerValues",
+    "maxSamples",
+    "minRandomSamples",
+    "naturalValues",
+    "operations",
+    "realValues",
+    "seed",
+    "sweepOperations"
+   ]
+  },
+  "samples": {
+   "type": "array",
+   "requiredElementKeys": [
+    "axisPos",
+    "errorMessage",
+    "index",
+    "kind",
+    "left",
+    "op",
+    "right",
+    "samplingKind",
+    "script",
+    "sigma",
+    "success",
+    "sweepId",
+    "sweptSide",
+    "typed",
+    "weight"
+   ]
+  },
+  "planes": {
+   "type": "array",
+   "requiredElementKeys": [
+    "confidence",
+    "errorMessage",
+    "kind",
+    "sampleIndices",
+    "sigma",
+    "support"
+   ]
+  },
+  "boundaries": {
+   "type": "array",
+   "requiredElementKeys": [
+    "confidence",
+    "evidence",
+    "fromPlane",
+    "guard",
+    "id",
+    "operation",
+    "sweptSide",
+    "toPlane"
+   ]
+  },
+  "frontiers": {
+   "type": "array",
+   "requiredElementKeys": [
+    "anchor",
+    "description",
+    "high",
+    "id",
+    "kind",
+    "low",
+    "operation",
+    "sweptSide"
+   ]
+  },
+  "metrics": {
+   "type": "object",
+   "requiredKeys": [
+    "c1NewPlaneRate",
+    "c1NewPlanesLastK",
+    "c1Saturated",
+    "c2Stable",
+    "c2StableBoundaries",
+    "c2TotalBoundaries",
+    "c3Agreed",
+    "c3AgreedCount",
+    "c3Agreement",
+    "c3HeldOutCount",
+    "c4Covered",
+    "converged",
+    "coverage",
+    "planeCount",
+    "stopReason",
+    "totalSamples"
+   ]
+  }
+ },
+ "example": {
+  "path": "knowledge-graph-demo.json",
+  "sha256": "d445672bafad0af23ef4d5596144201bdf01ce3e961909eeaa8f18be50ef8f76",
+  "bytes": 217668
+ }
+}

@@ -676,6 +676,7 @@ mod tests {
             revision: crate::execution::SourceRevision(1),
             committed_steps: 1,
             total: 1,
+            precision: crate::engine::DEFAULT_PRECISION,
             diagnostic: None,
         };
         let table = FunctionTable::new(&snapshot.state);

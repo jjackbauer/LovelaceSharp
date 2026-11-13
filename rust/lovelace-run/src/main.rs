@@ -63,6 +63,8 @@ struct Options {
     function_pattern: Option<String>,
     describe_function: Option<String>,
     function_limit: usize,
+    /// The interactive REPL: no script source, a session read from stdin until exit.
+    repl: bool,
 }
 
 fn usage() -> String {
@@ -84,6 +86,7 @@ fn usage() -> String {
     s.push_str("  --functions [pattern] list the builtin registry (no evaluation)\n");
     s.push_str("  --function <name>     describe one builtin (no evaluation)\n");
     s.push_str("  --function-limit <n>  bound a registry listing\n");
+    s.push_str("  --repl                interactive session (stdin/stdout; Ctrl+C exits)\n");
     s.push_str("  --json                machine mode (default)\n");
     s.push_str("  --text                human mode\n");
     s.push_str("  --help, -h            this message\n");
@@ -106,7 +109,15 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
         function_pattern: None,
         describe_function: None,
         function_limit: 50,
+        repl: false,
     };
+    // `--stdin` reads the process's whole standard input during argument parsing, which would
+    // consume the session's commands before the conflict could be reported.
+    if args.iter().any(|argument| argument == "--repl")
+        && args.iter().any(|argument| argument == "--stdin")
+    {
+        return Err("--repl cannot be combined with --stdin".to_string());
+    }
     let mut bare: Option<String> = None;
     let mut i = 0usize;
     while i < args.len() {
@@ -192,6 +203,10 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
                 o.describe_function = Some(need(i)?);
                 i += 2;
             }
+            "--repl" => {
+                o.repl = true;
+                i += 1;
+            }
             "--function-limit" => {
                 let v = need(i)?;
                 let limit = v
@@ -224,6 +239,21 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
                 i += 1;
             }
         }
+    }
+    if o.repl {
+        if bare.is_some() {
+            return Err("--repl cannot be combined with a script path".to_string());
+        }
+        if o.source.is_some()
+            || o.source_file.is_some()
+            || o.list_functions
+            || o.describe_function.is_some()
+        {
+            return Err(
+                "--repl cannot be combined with a script source or registry query".to_string(),
+            );
+        }
+        return Ok(o);
     }
     if o.source.is_none()
         && o.source_file.is_none()
@@ -280,6 +310,13 @@ fn run() {
             std::process::exit(2);
         }
     };
+
+    // The interactive session shares this binary's engine but not its envelope: it is entered
+    // before any source is read and owns the process until end of input.
+    if opts.repl {
+        repl::run(&opts);
+        return;
+    }
 
     // A REGISTRY QUERY IS A READ: no script is parsed, nothing is evaluated, and the revision is
     // untouched. It is answered before any creation of directories or evaluation.
@@ -1121,6 +1158,9 @@ mod schemas;
 // and engine-offset map are the host-facing half of the surface and have no wire consumer yet.
 #[allow(dead_code)]
 mod script_source;
+
+/// The interactive REPL surface (the reference Lovelace.Console/Repl transcript contract).
+mod repl;
 
 // The plot surface (round 70, moved to lovelace-lang in round 87): PlotValue, the exact model,
 // renderer options and the deterministic SVG / JSON serialisation. It is the reference

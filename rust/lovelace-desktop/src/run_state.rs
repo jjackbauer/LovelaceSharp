@@ -15,7 +15,7 @@
 //! | [`RunState::Finished`] | terminal success, its snapshot is displayed | `run Finished` |
 //! | [`RunState::Cancelled`] | terminal cancellation | `run Cancelled` |
 //! | [`RunState::Failed`] | terminal failure | `run Failed` |
-//! | [`RunState::Stale`] | the source advanced after a finished result; the result no longer describes the buffer | `run Stale` |
+//! | [`RunState::Stale`] | the result that is displayed no longer describes the current source | `run Stale` |
 //!
 //! # Transitions
 //!
@@ -27,12 +27,20 @@
 //! Queued | Running | Cancelling --Cancelled event--> Cancelled
 //! Queued | Running | Cancelling --Failed event--> Failed
 //! Finished --source revision advances--> Stale
+//! Queued | Running | Cancelling | Cancelled --result discarded (source advanced)--> Stale
 //! Stale --source revision advances--> Stale   (no transition; Finished is not resurrected)
 //! ```
 //!
 //! Exactly one terminal run event (`Finished`, `Cancelled` or `Failed`) is accepted per run:
 //! [`RunStateMachine::finish`] requires the state to still be in flight and the run id to match
 //! the tracked run, so a duplicated or late terminal event is refused.
+//!
+//! RUN-012: an edit during a run cancels it, and the terminal event that eventually arrives
+//! describes text the user has already replaced. That event is still the run's one terminal
+//! state (`Cancelled`); [`RunStateMachine::abandon`] then moves the display to `Stale`, because
+//! the result set on screen — possibly the previous run's snapshot — no longer describes the
+//! buffer. `stale()` is deliberately separate: a plain edit never marks a user-cancelled run
+//! stale, only a *discarded* result does.
 
 use std::fmt;
 use std::time::Instant;
@@ -276,6 +284,30 @@ impl RunStateMachine {
         self.transition(RunState::Stale, Some(run), reason.into())
     }
 
+    /// RUN-012: marks the run's result set stale because the result was discarded.
+    ///
+    /// This is the abandoned-run edge, used after the one terminal run event has been applied
+    /// (`Cancelled`) or before it (`Queued`/`Running`/`Cancelling`): the run's result describes a
+    /// source revision that no longer exists, so the display is stale, not current. It is a
+    /// separate method from [`Self::stale`] so an ordinary edit can never stale a user-cancelled
+    /// result. Returns false when the run does not match or the state cannot become stale.
+    pub fn abandon(&mut self, run: RunId, reason: impl Into<String>) -> bool {
+        if self.run != Some(run) {
+            return false;
+        }
+        if !matches!(
+            self.state,
+            RunState::Queued
+                | RunState::Running
+                | RunState::Cancelling
+                | RunState::Cancelled
+                | RunState::Failed
+        ) {
+            return false;
+        }
+        self.transition(RunState::Stale, Some(run), reason.into())
+    }
+
     /// Resets to [`RunState::Idle`], for a document whose content was replaced (open/load).
     ///
     /// Returns false when the machine was already idle.
@@ -357,6 +389,16 @@ fn allowed(from: RunState, to: RunState) -> bool {
                 RunState::Finished | RunState::Cancelled | RunState::Failed,
             )
             | (RunState::Finished, RunState::Stale)
+            // RUN-012: the display becomes stale when a run's result is discarded (the terminal
+            // event arrived, or a run is abandoned) because the source advanced under it.
+            | (
+                RunState::Queued
+                    | RunState::Running
+                    | RunState::Cancelling
+                    | RunState::Cancelled
+                    | RunState::Failed,
+                RunState::Stale,
+            )
     )
 }
 

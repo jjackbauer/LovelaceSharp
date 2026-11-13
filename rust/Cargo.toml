@@ -9,6 +9,7 @@ members = [
   "lovelace-symbolics",
   "lovelace-lang",
   "lovelace-run",
+  "lovelace-know",
   "lovelace-corpus",
   "lovelace-bench",
   "lovelace-desktop",

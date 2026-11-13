@@ -248,6 +248,22 @@ pub struct WorkbenchDocument {
     pub committed: usize,
     /// Number of statements the current or last run will visit.
     pub total: usize,
+    /// RUN-004: the label of the statement the run last reported as started.
+    ///
+    /// It is set from `StepStarted`, so the status strip can name what the engine is working on
+    /// instead of only counting it. Cleared when the run closes.
+    pub current_label: Option<String>,
+    /// RUN-010: the advisory shown when a Run request was refused while a run was in flight.
+    ///
+    /// It is the exact sentence the user sees in the status strip, and it is cleared when a run
+    /// is accepted or when the in-flight run terminates. The refusal never touches the run that
+    /// is already executing.
+    pub run_refusal: Option<String>,
+    /// RUN-020: the precision the in-flight (or last) run was submitted with.
+    ///
+    /// The terminal snapshot reports the engine's precision after the script ran; comparing the
+    /// two is what proves a `setprecision(n)` statement changed it.
+    submitted_precision: usize,
     /// Display value of every statement the current or last run committed, in statement order.
     ///
     /// The panes only ever paint the last value (the snapshot's `result`); the headless
@@ -304,6 +320,40 @@ impl WorkbenchDocument {
         } else {
             self.title.clone()
         }
+    }
+
+    /// RUN-011: the tab-strip label, which also names a document's run state.
+    ///
+    /// The tab strip paints one label per document, so the label has to carry the state: two
+    /// concurrent runs are only observable in one window if each tab says what its own run is
+    /// doing. `Idle` adds nothing (the common case stays quiet); every other state appends its
+    /// status-strip label, so the words match the active document's `run <state>` text exactly.
+    pub fn tab_label(&self) -> String {
+        let title = self.title_with_marker();
+        match self.state() {
+            RunState::Idle => title,
+            state => format!("{title} · {}", state.label()),
+        }
+    }
+
+    /// RUN-004: the step-level progress line for the status strip.
+    ///
+    /// It always carries the three values the row requires — completed/total, the current
+    /// statement label and the reused count — and nothing derived from a statement that has not
+    /// committed: `committed` only moves on `StepCommitted`, and the label comes from the latest
+    /// `StepStarted`. While a run is in flight the line describes it; after a terminal state the
+    /// same counters describe the result that is displayed. Empty before the first run.
+    pub fn progress_text(&self) -> String {
+        if self.total == 0 && self.committed == 0 && self.current_label.is_none() {
+            return String::new();
+        }
+        let mut text = format!("{}/{}", self.committed, self.total);
+        if let Some(label) = &self.current_label {
+            text.push_str(" · ");
+            text.push_str(label);
+        }
+        text.push_str(&format!(" · reused {}", self.reused));
+        text
     }
 
     /// The encoding badge: `"UTF-8 BOM · CRLF"`, `"UTF-8 · LF"`, and so on.
@@ -402,6 +452,16 @@ pub struct DocumentView {
     pub diagnostic: Option<Diagnostic>,
     /// The document's visible run state.
     pub run_state: RunState,
+    /// RUN-012: the buffer's current source revision.
+    ///
+    /// Compared with [`Self::revision`] it tells the panes whether the displayed snapshot still
+    /// describes the editor text. A pane that shows a snapshot whose revision is older is showing
+    /// an inspectable old result, not the current one.
+    pub buffer_revision: SourceRevision,
+    /// RUN-004: the step-level progress line (completed/total, label, reused count).
+    pub progress: String,
+    /// RUN-020: the document's display precision, after any script `setprecision`.
+    pub precision: usize,
     /// Duration of the last run, in milliseconds.
     pub elapsed_ms: u64,
 }
@@ -1368,6 +1428,32 @@ impl Workbench {
         self.set_precision(self.active, decimals);
     }
 
+    /// RUN-019: applies a precision typed into the toolbar control, validating it locally.
+    ///
+    /// The toolbar accepts text so an invalid value can be *rejected* instead of silently
+    /// clamped: the user typed something, and the product says what is acceptable without
+    /// touching the document. On success the document precision is set exactly as
+    /// [`Workbench::set_precision`] does; on failure the guidance sentence is logged and
+    /// returned, and the document precision is not changed.
+    pub fn set_precision_text(&mut self, index: usize, text: &str) -> Result<usize, String> {
+        match parse_precision(text) {
+            Ok(decimals) => {
+                self.set_precision(index, decimals);
+                Ok(self.docs.get(index).map(|doc| doc.precision).unwrap_or(decimals))
+            }
+            Err(guidance) => {
+                self.log(index, LogKind::Info, guidance.clone());
+                Err(guidance)
+            }
+        }
+    }
+
+    /// RUN-019: applies a typed precision to the active document (see
+    /// [`Workbench::set_precision_text`]).
+    pub fn set_active_precision_text(&mut self, text: &str) -> Result<usize, String> {
+        self.set_precision_text(self.active, text)
+    }
+
     /// WKS-004 / J-10: clears the document's variables while retaining its functions.
     ///
     /// Every run evaluates on a fresh engine (see [`crate::execution`]), so the workspace the
@@ -1463,7 +1549,17 @@ impl Workbench {
             return false;
         };
         if doc.state().is_in_flight() {
-            self.log(index, LogKind::Info, "A run is already in progress.");
+            // RUN-010: the refusal is recorded on the document and rendered by the status strip,
+            // so pressing Run (or Ctrl+Enter) during a run produces a visible advisory instead
+            // of a silent no-op. Nothing about the in-flight run is touched.
+            let state = doc.state();
+            let advisory = format!(
+                "Run refused: a run is already in progress ({}). The running job was not disturbed.",
+                state.label()
+            );
+            let doc = &mut self.docs[index];
+            doc.run_refusal = Some(advisory.clone());
+            Self::push_line(doc, LogLine::new(LogKind::Info, advisory));
             return false;
         }
         if doc.source.trim().is_empty() {
@@ -1485,11 +1581,12 @@ impl Workbench {
                 true
             }
             Err(SubmitError::Busy) => {
-                self.log(
-                    index,
-                    LogKind::Info,
-                    "The execution host is still finishing the previous run.",
-                );
+                // The host refused because a worker for this document is still retiring. This is
+                // the same user-visible rejection as the state-machine refusal above.
+                let doc = &mut self.docs[index];
+                let advisory = "Run refused: the execution host is still finishing the previous run. The running job was not disturbed.".to_string();
+                doc.run_refusal = Some(advisory.clone());
+                Self::push_line(doc, LogLine::new(LogKind::Info, advisory));
                 false
             }
             Err(SubmitError::Spawn(message)) => {
@@ -1587,6 +1684,11 @@ impl Workbench {
             doc.quick_eval_run = None;
             doc.committed = 0;
             doc.total = 0;
+            doc.current_label = None;
+            // A new run supersedes the previous refusal: the advisory described a request that
+            // could not start, and this one did.
+            doc.run_refusal = None;
+            doc.submitted_precision = precision;
             doc.committed_results.clear();
             doc.committed_reused.clear();
             doc.reused = 0;
@@ -1772,6 +1874,9 @@ impl Workbench {
                 // workspace yet.
                 let total = self.docs[index].total;
                 self.docs[index].current_statement = Some(*statement);
+                // RUN-004: the status strip names the statement the engine is working on. The
+                // label belongs to `StepStarted`, the same event the log line comes from.
+                self.docs[index].current_label = Some(label.clone());
                 let line = LogLine::new(
                     LogKind::Progress,
                     format!("statement {}/{}: {}", statement + 1, total, label),
@@ -1799,6 +1904,13 @@ impl Workbench {
                     statement + 1,
                     "a commit snapshot must describe exactly the statements before and including it"
                 );
+                if *step_reused {
+                    // INC-008/RUN-004: a reused commit is marked on the statement's own progress
+                    // line, so the log says which statement was served from the cache instead of
+                    // only how many were. The line was buffered at StepStarted, before the reuse
+                    // decision existed.
+                    Self::mark_pending_reused(&mut self.docs[index], *statement);
+                }
                 self.flush_pending(index);
                 if !quick_eval {
                     self.publish_snapshot(index, snapshot.clone());
@@ -1847,6 +1959,8 @@ impl Workbench {
                 }
                 if !quick_eval {
                     self.publish_snapshot(index, snapshot.clone());
+                    // RUN-020: a `setprecision(n)` statement moves the toolbar/status precision.
+                    self.adopt_run_precision(index, snapshot);
                 }
                 {
                     let doc = &mut self.docs[index];
@@ -1897,6 +2011,7 @@ impl Workbench {
                 self.flush_pending(index);
                 if !quick_eval {
                     self.publish_snapshot(index, snapshot.clone());
+                    self.adopt_run_precision(index, snapshot);
                 }
                 {
                     let doc = &mut self.docs[index];
@@ -1945,6 +2060,7 @@ impl Workbench {
                 self.flush_pending(index);
                 if !quick_eval {
                     self.publish_snapshot(index, snapshot.clone());
+                    self.adopt_run_precision(index, snapshot);
                 }
                 {
                     let doc = &mut self.docs[index];
@@ -1964,7 +2080,9 @@ impl Workbench {
                 self.log(
                     index,
                     LogKind::Diagnostic,
-                    format!("Diagnostic: {}", diagnostic.render()),
+                    // RUN-014: code, category, message, line, column and the engine's
+                    // suggestions, in one self-describing line.
+                    format!("Diagnostic: {}", diagnostic.render_fully()),
                 );
                 let text = if quick_eval {
                     format!(
@@ -1997,6 +2115,11 @@ impl Workbench {
         doc.elapsed_ms = elapsed;
         doc.run = None;
         doc.quick_eval_run = None;
+        // The run is over: no statement is "current" any more, so the progress line stops naming
+        // one. The committed/total and reused counters still describe the displayed result.
+        doc.current_label = None;
+        // RUN-010: the refusal advisory described a run that is now over.
+        doc.run_refusal = None;
         // A terminal event ends the run's statement window; any line still buffered describes a
         // statement that never committed and must not leak into a later run.
         doc.pending_logs.clear();
@@ -2004,13 +2127,41 @@ impl Workbench {
         elapsed
     }
 
+    /// RUN-020: adopts the precision the run's engine actually used.
+    ///
+    /// `setprecision(n)` inside the script changes the engine's display precision mid-run, and
+    /// the terminal snapshot reports the engine's own value (see `WorkspaceSnapshot::precision`).
+    /// Adopting it keeps the toolbar, the status strip and the next run's submitted precision in
+    /// step with what rendered the result. A script that never calls `setprecision` reports the
+    /// submitted value back unchanged, so this is a no-op for it.
+    fn adopt_run_precision(&mut self, index: usize, snapshot: &WorkspaceSnapshot) {
+        let doc = &mut self.docs[index];
+        if snapshot.precision == doc.submitted_precision || snapshot.precision == doc.precision {
+            return;
+        }
+        let previous = doc.precision;
+        doc.precision = snapshot.precision;
+        let title = doc.title.clone();
+        Self::push_line(
+            doc,
+            LogLine::new(
+                LogKind::Info,
+                format!(
+                    "Script set precision for {title} to {} digits (was {previous}); the next run uses it.",
+                    snapshot.precision
+                ),
+            ),
+        );
+    }
+
     /// Retires a run whose terminal event cannot be published, without publishing its snapshot.
     ///
     /// The run was in flight and is now over, so the state machine still accepts exactly one
-    /// terminal transition. `Cancelled` is the truthful state: the run was abandoned by the
-    /// source edit (or its result failed the revision check), not completed for this buffer.
-    /// The abandoned run's buffered statement lines are still appended: the log narrates what
-    /// was attempted, while no snapshot is published and therefore no pane claims its effects.
+    /// terminal transition (the worker did cancel or fail it); the terminal event is applied as
+    /// `Cancelled` here. RUN-012: the display then moves to `Stale`, because the result set on
+    /// screen describes the replaced source and must never be presented as current. The
+    /// abandoned run's buffered statement lines are still appended: the log narrates what was
+    /// attempted, while no snapshot is published and therefore no pane claims its effects.
     fn discard_terminal(&mut self, index: usize, run: RunId, reason: &str) -> bool {
         if !self.docs[index].state().is_in_flight() {
             return false;
@@ -2023,6 +2174,13 @@ impl Workbench {
         if !transitioned {
             return false;
         }
+        // RUN-012: exactly one Stale transition, and only for a discarded result. A second
+        // discard (or an edit) cannot add another.
+        let staled = self.docs[index].run_state.abandon(
+            run,
+            "the discarded result describes a source revision that no longer exists",
+        );
+        debug_assert!(staled, "a discarded run must leave the display stale");
         self.flush_pending(index);
         let _ = self.close_run(index);
         self.log(
@@ -2030,6 +2188,13 @@ impl Workbench {
             LogKind::Info,
             format!("Run result discarded: {reason}"),
         );
+        if staled {
+            self.log(
+                index,
+                LogKind::Info,
+                "The displayed result is stale: it does not describe the current source. It is kept for inspection, never as the current result.",
+            );
+        }
         true
     }
 
@@ -2076,6 +2241,18 @@ impl Workbench {
         }
     }
 
+    /// Marks the buffered progress line of `statement` as a reused commit.
+    fn mark_pending_reused(doc: &mut WorkbenchDocument, statement: usize) {
+        if let Some(line) = doc
+            .pending_logs
+            .iter_mut()
+            .rev()
+            .find(|line| line.kind == LogKind::Progress && line.statement == Some(statement))
+        {
+            line.text.push_str(" (reused)");
+        }
+    }
+
     /// Appends every buffered statement line in production order and closes the statement window.
     fn flush_pending(&mut self, index: usize) {
         let Some(doc) = self.docs.get_mut(index) else {
@@ -2096,10 +2273,15 @@ impl Workbench {
         }
     }
 
-    /// The status strip: document, revision, precision, cursor and run state.
+    /// The status strip: document, revision, precision, cursor, run state and step progress.
+    ///
+    /// RUN-004: the progress segment is the document's [`WorkbenchDocument::progress_text`], so
+    /// completed/total, the current statement label and the reused count are on screen while the
+    /// run is in flight. RUN-010: a refused Run appends its advisory here until the next run is
+    /// accepted or the in-flight run terminates.
     pub fn status_text(&self, line: usize, column: usize) -> String {
         let doc = &self.docs[self.active];
-        format!(
+        let mut text = format!(
             "{}  |  rev {}  |  precision {}  |  Ln {}, Col {}  |  run {}",
             doc.title,
             doc.revision,
@@ -2107,7 +2289,17 @@ impl Workbench {
             line,
             column,
             doc.state().label()
-        )
+        );
+        let progress = doc.progress_text();
+        if !progress.is_empty() {
+            text.push_str("  |  ");
+            text.push_str(&progress);
+        }
+        if let Some(refusal) = &doc.run_refusal {
+            text.push_str("  |  ");
+            text.push_str(refusal);
+        }
+        text
     }
 
     /// The active document's last plot, if any.
@@ -2166,6 +2358,9 @@ impl Workbench {
             logs: document.logs.clone(),
             diagnostic: self.diagnostic(index).cloned(),
             run_state: document.state(),
+            buffer_revision: SourceRevision(document.revision),
+            progress: document.progress_text(),
+            precision: document.precision,
             elapsed_ms: document.elapsed_ms,
         })
     }
@@ -2224,6 +2419,9 @@ impl WorkbenchDocument {
             last_sequence: 0,
             committed: 0,
             total: 0,
+            current_label: None,
+            run_refusal: None,
+            submitted_precision: DEFAULT_PRECISION,
             committed_results: Vec::new(),
             committed_reused: Vec::new(),
             reused: 0,
@@ -2250,6 +2448,34 @@ fn plot_scoped_factory(inner: EvaluatorFactory, root: PathBuf) -> EvaluatorFacto
         evaluator.set_plot_dir(&directory.to_string_lossy());
         evaluator
     })
+}
+
+/// RUN-019: parses the toolbar's precision text, or names exactly what is acceptable.
+///
+/// The message is the product's guidance, not a parser error: it says the range and, when there
+/// is a value to quote, what was wrong with it. Empty / non-numeric / out-of-range are the three
+/// ways the control can fail, and each one is rejected without changing the document.
+pub fn parse_precision(text: &str) -> Result<usize, String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return Err(format!(
+            "Precision must be a whole number of digits from {MIN_PRECISION} to {MAX_PRECISION}; the field is empty."
+        ));
+    }
+    if !trimmed.chars().all(|character| character.is_ascii_digit()) {
+        return Err(format!(
+            "Precision must be a whole number of digits from {MIN_PRECISION} to {MAX_PRECISION}; '{trimmed}' is not a number."
+        ));
+    }
+    match trimmed.parse::<usize>() {
+        Ok(decimals) if (MIN_PRECISION..=MAX_PRECISION).contains(&decimals) => Ok(decimals),
+        Ok(decimals) => Err(format!(
+            "Precision must be a whole number of digits from {MIN_PRECISION} to {MAX_PRECISION}; {decimals} is out of range."
+        )),
+        Err(_) => Err(format!(
+            "Precision must be a whole number of digits from {MIN_PRECISION} to {MAX_PRECISION}; '{trimmed}' is too large."
+        )),
+    }
 }
 
 #[cfg(test)]
@@ -3679,10 +3905,18 @@ mod tests {
         );
         assert_eq!(
             workbench.documents()[0].state(),
-            RunState::Cancelled,
-            "an abandoned run must still end in exactly one terminal state"
+            RunState::Stale,
+            "an abandoned run ends with its one terminal run event and leaves the display \
+             stale: {:?}",
+            workbench.documents()[0].transitions()
         );
         assert_eq!(workbench.documents()[0].terminal_run_event_count(), 1);
+        let stales = workbench.documents()[0]
+            .transitions()
+            .iter()
+            .filter(|transition| transition.to == RunState::Stale)
+            .count();
+        assert_eq!(stales, 1, "exactly one Stale transition for the abandoned run");
         let texts = workbench.documents()[0]
             .logs
             .iter()
@@ -5324,5 +5558,952 @@ mod tests {
             "only this session's records are cleaned up"
         );
         let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    // ===========================================================================================
+    // Round 36: RUN-004, RUN-007, RUN-010, RUN-011, RUN-012, RUN-013, RUN-014, RUN-016, RUN-017,
+    // RUN-019 and RUN-020 evidence. Each test names the row it closes and asserts one concrete
+    // observable, not a paraphrase of the implementation.
+    // ===========================================================================================
+
+    /// The shipped engine factory, for the rows whose observable is the real engine's.
+    #[cfg(feature = "real-engine")]
+    fn real_workbench() -> Workbench {
+        Workbench::with_factory(Box::new(|| Box::new(crate::engine::RealEngine::new())))
+    }
+
+    fn all_log_text(workbench: &Workbench, index: usize) -> String {
+        workbench
+            .documents()
+            .get(index)
+            .map(|document| {
+                document
+                    .logs
+                    .iter()
+                    .map(|line| line.render())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+            .unwrap_or_default()
+    }
+
+    /// RUN-004: while a multi-statement run is in flight, the status strip and the log name the
+    /// completed/total count, the statement the engine is on and how many statements the cache
+    /// served. The third statement is one long kernel, so the run is observed mid-flight with
+    /// `committed == 2`.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn run_progress_shows_completed_total_label_and_reused_count_mid_run() {
+        let mut workbench = real_workbench();
+        // Run 1 fills the per-document cache for statements 1 and 2 with a fast third statement.
+        workbench.set_source(0, "a = 1\nb = a + 1\nc = 0\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(30)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+        assert_eq!(workbench.documents()[0].reused, 0, "the first run computes");
+
+        // Run 2 changes only the third statement: statements 1 and 2 are reused, statement 3 is
+        // one long kernel and takes long enough to be seen before it commits.
+        workbench.set_source(
+            0,
+            "a = 1\nb = a + 1\nmatmul(eye(160), eye(160))\n".to_string(),
+        );
+        assert!(workbench.run_active());
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let mut observed: Option<(String, String, Option<String>)> = None;
+        while Instant::now() < deadline {
+            workbench.poll();
+            let document = &workbench.documents()[0];
+            if document.total == 3 && document.committed == 2 && document.state() == RunState::Running
+            {
+                observed = Some((
+                    document.progress_text(),
+                    workbench.status_text(1, 1),
+                    document.current_label.clone(),
+                ));
+                break;
+            }
+            if !workbench.active_is_running() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let (progress, status, label) = observed.expect(
+            "the run never reached committed 2 of 3 while in flight; the kernel is too short to observe",
+        );
+        assert!(
+            progress.starts_with("2/3"),
+            "progress must show completed/total: {progress:?}"
+        );
+        assert!(
+            label.as_deref().unwrap_or_default().contains("matmul"),
+            "the progress line must name the statement being evaluated: {label:?}"
+        );
+        assert!(
+            progress.contains("matmul"),
+            "the status progress segment must carry the current label: {progress:?}"
+        );
+        assert!(
+            progress.contains("reused 2"),
+            "the progress line must carry the reused count: {progress:?}"
+        );
+        assert!(
+            status.contains("run Running") && status.contains(&progress),
+            "the status strip must show the run state and the progress segment: {status:?}"
+        );
+        let log = all_log_text(&workbench, 0);
+        assert!(
+            log.contains("[progress] statement 1/3: a = 1 (reused)"),
+            "the log must mark a reused commit: {log:?}"
+        );
+        assert!(
+            log.contains("[progress] statement 2/3: b = a + 1 (reused)"),
+            "the log must mark the second reused commit: {log:?}"
+        );
+
+        assert!(workbench.wait_until_idle(Duration::from_secs(30)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Finished);
+        assert_eq!(document.committed, 3);
+        assert_eq!(document.reused, 2);
+        assert_eq!(document.progress_text(), "3/3 · reused 2");
+        assert_eq!(document.current_label, None, "no statement is current once the run ends");
+    }
+
+    /// RUN-010: a Run request during an in-flight run is refused with an advisory the user can
+    /// see, and the running job is not disturbed: one terminal event, one queued transition and
+    /// the original run's result.
+    #[test]
+    fn run_during_a_run_is_refused_with_a_visible_advisory_and_does_not_disturb_the_run() {
+        let mut workbench = slow_workbench(Duration::from_millis(30));
+        workbench.set_source(0, "a = 1\nb = 2\nc = 3\nd = 4\n".to_string());
+        assert!(workbench.run_active());
+        let run = workbench.documents()[0].run_id();
+        let transitions_before = workbench.documents()[0].transition_count();
+
+        assert!(
+            !workbench.run_active(),
+            "a second Run during an active run must be refused"
+        );
+        let document = &workbench.documents()[0];
+        assert_eq!(
+            document.run_id(),
+            run,
+            "the refused request must not replace the active run"
+        );
+        let advisory = document
+            .run_refusal
+            .clone()
+            .expect("the refusal must leave a visible advisory");
+        assert!(advisory.contains("Run refused"), "advisory was {advisory:?}");
+        assert!(
+            advisory.contains("already in progress"),
+            "advisory was {advisory:?}"
+        );
+        assert!(
+            advisory.contains("not disturbed"),
+            "the advisory must say the active run was not affected: {advisory:?}"
+        );
+        let status = workbench.status_text(1, 1);
+        assert!(
+            status.contains(&advisory),
+            "the status strip must carry the advisory: {status:?}"
+        );
+        assert!(
+            all_log_text(&workbench, 0).contains(&advisory),
+            "the log must carry the advisory: {:?}",
+            all_log_text(&workbench, 0)
+        );
+
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Finished);
+        let queued = document.transitions()[transitions_before..]
+            .iter()
+            .filter(|transition| transition.to == RunState::Queued)
+            .count();
+        assert_eq!(
+            queued, 0,
+            "the refused request must not add a Queued transition: {:?}",
+            document.transitions()
+        );
+        assert_eq!(
+            document.terminal_run_event_count(),
+            1,
+            "exactly one terminal run event for the run that did start"
+        );
+        let snapshot = document
+            .snapshot
+            .as_ref()
+            .expect("the run that started must publish its result");
+        assert_eq!(
+            snapshot.result, "ok",
+            "the first run must finish with its own result, not the refused one's"
+        );
+        assert_eq!(snapshot.committed_steps, 4);
+        assert_eq!(
+            document.run_refusal, None,
+            "the advisory describes a live run and is cleared when that run ends"
+        );
+    }
+
+    /// RUN-011: two documents run at the same time; cancelling one leaves the other finishing
+    /// normally, and each tab's label names its own run state.
+    #[test]
+    fn two_documents_run_concurrently_and_one_cancels_while_the_other_finishes() {
+        let mut workbench = slow_workbench(Duration::from_millis(40));
+        workbench.set_source(
+            0,
+            "a = 1\nb = 2\nc = 3\nd = 4\ne = 5\n".to_string(),
+        );
+        workbench.set_source(1, "x = 1\ny = 2\nz = 3\nu = 4\nv = 5\n".to_string());
+
+        assert!(workbench.run_active(), "document 1 must start");
+        workbench.set_active(1);
+        assert!(workbench.run_active(), "document 2 must start too");
+        workbench.poll();
+        assert!(
+            workbench.documents()[0].state().is_in_flight(),
+            "document 1 was already {:?}",
+            workbench.documents()[0].state()
+        );
+        assert!(
+            workbench.documents()[1].state().is_in_flight(),
+            "document 2 was already {:?}",
+            workbench.documents()[1].state()
+        );
+        assert!(
+            workbench.cancel_active(),
+            "the active document's run must be cancellable"
+        );
+        assert_eq!(workbench.documents()[1].state(), RunState::Cancelling);
+
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        let first = &workbench.documents()[0];
+        let second = &workbench.documents()[1];
+        assert_eq!(
+            first.state(),
+            RunState::Finished,
+            "document 1 must finish while document 2 is cancelled"
+        );
+        assert_eq!(second.state(), RunState::Cancelled);
+        assert_eq!(
+            first
+                .snapshot
+                .as_ref()
+                .map(|snapshot| (snapshot.committed_steps, snapshot.result.as_str())),
+            Some((5, "ok")),
+            "document 1's run must not be shortened by the other document's cancellation"
+        );
+        assert!(
+            second
+                .snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.committed_steps)
+                .unwrap_or(0)
+                <= 5,
+            "document 2 keeps its committed prefix"
+        );
+        assert!(
+            second.committed < 5,
+            "document 2 was cancelled before finishing; committed {}",
+            second.committed
+        );
+        assert!(
+            first.tab_label().contains("Finished"),
+            "tab 1 must name its finished run: {:?}",
+            first.tab_label()
+        );
+        assert!(
+            second.tab_label().contains("Cancelled"),
+            "tab 2 must name its cancelled run: {:?}",
+            second.tab_label()
+        );
+        assert!(!workbench.is_running());
+    }
+
+    /// RUN-012: an edit during a run discards the eventual result and leaves the display stale —
+    /// never presented as the current result. The previously finished snapshot stays inspectable.
+    #[test]
+    fn editing_during_a_run_marks_the_result_stale_and_never_presents_it_as_current() {
+        // The first evaluated statement returns at once (run 1 finishes); every later evaluation
+        // sleeps, so run 2 is in flight when the edit lands and a finished snapshot is on screen.
+        // The counter is shared across the per-run engine instances.
+        struct FirstFastThenSlow {
+            delay: Duration,
+            evaluated: Arc<AtomicU64>,
+        }
+        impl Evaluator for FirstFastThenSlow {
+            fn eval(&mut self, _src: &str) -> Result<String, String> {
+                if self.evaluated.fetch_add(1, Ordering::SeqCst) > 0 {
+                    std::thread::sleep(self.delay);
+                }
+                Ok("ok".to_string())
+            }
+        }
+        let evaluated = Arc::new(AtomicU64::new(0));
+        let counter = Arc::clone(&evaluated);
+        let mut workbench = Workbench::with_factory(Box::new(move || {
+            Box::new(FirstFastThenSlow {
+                delay: Duration::from_millis(50),
+                evaluated: Arc::clone(&counter),
+            })
+        }));
+        workbench.set_source(0, "a = 1\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        let finished = workbench.documents()[0]
+            .snapshot
+            .clone()
+            .expect("run 1 publishes a snapshot");
+        assert_eq!(finished.result, "ok");
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+
+        // Start run 2 on the same revision, then edit while it is in flight.
+        assert!(workbench.run_active());
+        assert_eq!(workbench.documents()[0].state(), RunState::Queued);
+        workbench.set_source(0, "a = 2\n".to_string());
+        assert_eq!(workbench.documents()[0].state(), RunState::Cancelling);
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+
+        let document = &workbench.documents()[0];
+        assert_eq!(
+            document.state(),
+            RunState::Stale,
+            "the discarded run must leave the display stale, not present its result: {:?}",
+            document.transitions()
+        );
+        let terminal: Vec<RunState> = document
+            .transitions()
+            .iter()
+            .map(|transition| transition.to)
+            .collect();
+        let cancelled = terminal
+            .iter()
+            .position(|state| *state == RunState::Cancelled)
+            .expect("the abandoned run still ends with its one terminal run event");
+        assert_eq!(
+            terminal.get(cancelled + 1),
+            Some(&RunState::Stale),
+            "Stale must immediately follow the discarded terminal state: {terminal:?}"
+        );
+        // `terminal_run_event_count` is the whole document's log, and this document already had
+        // one terminal event from run 1. RUN-012's invariant is one terminal event per run, so
+        // scope the count to the discarded run and check the whole log has exactly one per run.
+        let discarded_run = document
+            .transitions()
+            .get(cancelled)
+            .and_then(|transition| transition.run)
+            .expect("the discarded terminal transition names its run");
+        let discarded_terminals = document
+            .transitions()
+            .iter()
+            .filter(|transition| {
+                transition.run == Some(discarded_run) && transition.to.is_terminal_run_event()
+            })
+            .count();
+        assert_eq!(
+            discarded_terminals, 1,
+            "exactly one terminal run event for the discarded run {discarded_run:?}, not one per \
+             document: {:?}",
+            document.transitions()
+        );
+        assert_eq!(
+            document.terminal_run_event_count(),
+            2,
+            "the log keeps run 1's Finished and the discarded run's Cancelled, and nothing else: \
+             {:?}",
+            document.transitions()
+        );
+        assert_eq!(
+            document.snapshot.as_ref().map(|s| s.result.as_str()),
+            Some("ok"),
+            "run 2's result must never replace the displayed one; the old snapshot stays inspectable"
+        );
+        let view = workbench.view(0).expect("the document view");
+        assert_eq!(view.run_state, RunState::Stale);
+        assert!(
+            view.revision.0 < view.buffer_revision.0,
+            "the displayed snapshot ({}) must be older than the buffer ({})",
+            view.revision.0,
+            view.buffer_revision.0
+        );
+        let status = workbench.status_text(1, 1);
+        assert!(status.contains("run Stale"), "status was {status:?}");
+        let log = all_log_text(&workbench, 0);
+        assert!(
+            log.contains("Run result discarded") && log.contains("stale"),
+            "the log must say the result was discarded and is stale: {log:?}"
+        );
+        assert_eq!(
+            log.matches("[result] = ok").count(),
+            1,
+            "only run 1 may log a result line; the discarded run must not: {log:?}"
+        );
+    }
+
+    /// RUN-012 (first-run case): when no earlier snapshot exists, the abandoned run still leaves
+    /// `Stale` rather than a result, and publishes no snapshot at all.
+    #[test]
+    fn an_abandoned_first_run_leaves_stale_and_publishes_nothing() {
+        let mut workbench = slow_workbench(Duration::from_millis(40));
+        workbench.set_source(0, "a = 1\nb = 2\n".to_string());
+        assert!(workbench.run_active());
+        assert_eq!(workbench.documents()[0].state(), RunState::Queued);
+        workbench.set_source(0, "c = 3\n".to_string());
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Stale);
+        assert!(
+            document.snapshot.is_none(),
+            "a run whose source was replaced must not publish its snapshot"
+        );
+        assert_eq!(document.terminal_run_event_count(), 1);
+        let stale = document
+            .transitions()
+            .iter()
+            .filter(|transition| transition.to == RunState::Stale)
+            .count();
+        assert_eq!(stale, 1, "exactly one Stale transition");
+    }
+
+    /// RUN-013: a failure keeps the committed prefix — the variables, the print line and the
+    /// committed count — and never half-writes the statement after the failure. A following
+    /// corrected run then completes.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn a_failure_keeps_the_committed_prefix_and_never_half_writes() {
+        let mut workbench = real_workbench();
+        workbench.set_source(
+            0,
+            "y = 4\nprint(\"kept\")\n1 / 0\nb = 99\n".to_string(),
+        );
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(30)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Failed);
+        let snapshot = document
+            .snapshot
+            .as_ref()
+            .expect("a failed run publishes the committed prefix");
+        assert_eq!(
+            snapshot.committed_steps, 2,
+            "only the two successful statements are committed"
+        );
+        assert_eq!(
+            document.committed, 2,
+            "the committed counter names the same prefix as the snapshot"
+        );
+        let names: Vec<&str> = snapshot
+            .variables
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect();
+        assert!(names.contains(&"y"), "variables were {names:?}");
+        assert!(
+            !names.contains(&"b"),
+            "the statement after the failure must not be written: {names:?}"
+        );
+        assert_eq!(
+            snapshot.output,
+            vec!["kept".to_string()],
+            "the committed print line is present exactly once"
+        );
+        let log = all_log_text(&workbench, 0);
+        assert_eq!(
+            log.matches("[stdout] kept").count(),
+            1,
+            "the print line must not be duplicated: {log:?}"
+        );
+        assert!(
+            log.contains("Run failed after 2 committed statements"),
+            "the timing line must name the committed prefix: {log:?}"
+        );
+        assert!(
+            !log.contains("statement 4/4"),
+            "the statement after the failure must never start: {log:?}"
+        );
+        assert!(
+            log.contains("[diagnostic] Diagnostic:"),
+            "the failure is a structured diagnostic line: {log:?}"
+        );
+
+        // The failure decoration is revision-gated and an edit clears it; the corrected script
+        // runs to completion on the same document.
+        workbench.set_source(
+            0,
+            "y = 4\nprint(\"kept\")\n2 + 2\nb = 99\n".to_string(),
+        );
+        assert!(
+            workbench.diagnostic(0).is_none(),
+            "editing past the failure hides its decoration"
+        );
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(30)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Finished);
+        let snapshot = document.snapshot.as_ref().expect("the corrected run publishes");
+        assert_eq!(snapshot.committed_steps, 4);
+        assert!(
+            snapshot.variables.iter().any(|(name, value)| name == "b"
+                && value.starts_with("99")),
+            "the corrected run writes the statement that failed before: {:?}",
+            snapshot.variables
+        );
+    }
+
+    /// RUN-014: the diagnostic carries code, category, message, line, column and the engine's
+    /// suggestions, and the same fields reach the log and the committed snapshot.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn a_diagnostic_presents_code_category_message_line_column_and_suggestions() {
+        let mut workbench = real_workbench();
+        // A misspelt builtin is the failure whose record carries the registry's suggestions.
+        workbench.set_source(0, "y = 1\nsqrtt(1)\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(30)));
+        let diagnostic = workbench
+            .diagnostic(0)
+            .cloned()
+            .expect("the failure decorates the current revision");
+        assert_eq!(diagnostic.code.as_deref(), Some("UnknownFunction"));
+        assert_eq!(diagnostic.category.as_deref(), Some("UnsupportedOperation"));
+        assert!(
+            diagnostic.message.contains("Unknown function 'sqrtt'"),
+            "message was {:?}",
+            diagnostic.message
+        );
+        assert_eq!((diagnostic.line, diagnostic.column), (2, 1));
+        assert_eq!(
+            diagnostic.suggestions,
+            vec!["sqrt".to_string()],
+            "the engine's closest registered name must travel with the diagnostic"
+        );
+        assert!(
+            diagnostic.message.contains("Did you mean 'sqrt'?"),
+            "the engine's own wording must be kept: {:?}",
+            diagnostic.message
+        );
+        let full = diagnostic.render_fully();
+        assert!(
+            full.contains("code UnknownFunction, category UnsupportedOperation, line 2, column 1"),
+            "the full rendering must name every field: {full:?}"
+        );
+        assert!(
+            full.contains("message: ") && full.contains("suggestions: "),
+            "the full rendering must carry the message and suggestions: {full:?}"
+        );
+        let log = all_log_text(&workbench, 0);
+        assert!(
+            log.contains(
+                "code UnknownFunction, category UnsupportedOperation, line 2, column 1"
+            ),
+            "the log line must name every field: {log:?}"
+        );
+        let snapshot_text = workbench.documents()[0]
+            .snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.diagnostic.clone())
+            .expect("the failed snapshot carries the diagnostic");
+        assert!(
+            snapshot_text.contains("UnknownFunction") && snapshot_text.contains("UnsupportedOperation"),
+            "the committed snapshot must carry the same fields: {snapshot_text:?}"
+        );
+    }
+
+    /// RUN-016: 10 000 emitted log lines are applied without blocking the UI's event path, and
+    /// the retained log keeps the last lines in order with no duplicate or lost line.
+    #[test]
+    fn ten_thousand_log_lines_do_not_freeze_the_event_loop() {
+        struct FloodEngine {
+            pending: Vec<String>,
+        }
+        impl Evaluator for FloodEngine {
+            fn eval(&mut self, _src: &str) -> Result<String, String> {
+                for index in 0..10_000 {
+                    self.pending.push(format!("flood line {index}"));
+                }
+                Ok("flood".to_string())
+            }
+            fn take_output(&mut self) -> Vec<String> {
+                std::mem::take(&mut self.pending)
+            }
+        }
+        let mut workbench = Workbench::with_factory(Box::new(|| {
+            Box::new(FloodEngine {
+                pending: Vec::new(),
+            })
+        }));
+        workbench.set_source(0, "flood()\n".to_string());
+        let submit = Instant::now();
+        assert!(workbench.run_active());
+        let submit_us = submit.elapsed().as_micros();
+
+        let started = Instant::now();
+        let mut frames = 0usize;
+        let mut applied = 0usize;
+        let mut max_pass = Duration::ZERO;
+        let mut max_frame = Duration::ZERO;
+        while workbench.active_is_running() {
+            let frame = Instant::now();
+            let report = workbench.poll_report();
+            applied += report.applied;
+            max_pass = max_pass.max(report.next_event_max);
+            // The per-frame work the window does besides polling: assemble the view and render
+            // the logs pane's text.
+            let view = workbench.active_view();
+            let painted: usize = view.logs.iter().map(|line| line.render().len()).sum();
+            assert!(painted > 0);
+            max_frame = max_frame.max(frame.elapsed());
+            frames += 1;
+            if frames > 100_000 {
+                panic!("the event loop never drained the flood");
+            }
+        }
+        let elapsed = started.elapsed();
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Finished);
+        assert!(
+            applied >= 10_000,
+            "only {applied} events were applied; the flood must reach the consumer"
+        );
+        assert_eq!(
+            document.logs.len(),
+            LOG_CAP,
+            "the log keeps its cap, not 10 000 lines"
+        );
+        let flood: Vec<usize> = document
+            .logs
+            .iter()
+            .filter_map(|line| {
+                line.text
+                    .strip_prefix("flood line ")
+                    .and_then(|rest| rest.parse::<usize>().ok())
+            })
+            .collect();
+        assert!(
+            flood.len() >= LOG_CAP - 5,
+            "the retained log must be the flood tail, found {} flood lines",
+            flood.len()
+        );
+        for pair in flood.windows(2) {
+            assert_eq!(
+                pair[1],
+                pair[0] + 1,
+                "flood lines must stay in order without gaps or duplicates: {flood:?}"
+            );
+        }
+        assert_eq!(
+            flood.last().copied(),
+            Some(9_999),
+            "the last emitted line must be retained"
+        );
+        println!(
+            "RUN-016 flood: submit {submit_us} us, {applied} events applied in {frames} frame(s), \
+             max poll pass {:.2} ms, max frame {:.2} ms, run {:.2} ms, retained {} lines, last {}",
+            max_pass.as_secs_f64() * 1000.0,
+            max_frame.as_secs_f64() * 1000.0,
+            elapsed.as_secs_f64() * 1000.0,
+            document.logs.len(),
+            flood.last().copied().unwrap_or(0)
+        );
+        assert!(
+            submit_us < 50_000,
+            "submit took {submit_us} us; it must return without evaluating"
+        );
+        assert!(
+            max_pass < Duration::from_millis(100),
+            "one nonblocking next_event call blocked for {max_pass:?}"
+        );
+        assert!(
+            max_frame < Duration::from_millis(250),
+            "one UI frame took {max_frame:?}; a 10 000-line flood must not freeze the editor"
+        );
+        assert!(
+            elapsed < Duration::from_secs(10),
+            "the flood took {elapsed:?}"
+        );
+    }
+
+    /// RUN-017: a panicking engine produces a recoverable Failed state, the diagnostic names the
+    /// panic, the run lock is released and the buffer runs again.
+    #[test]
+    fn a_panicking_engine_is_recovered_and_leaves_the_buffer_usable() {
+        struct PanicEngine {
+            panicked: Arc<AtomicBool>,
+        }
+        impl Evaluator for PanicEngine {
+            fn eval(&mut self, _src: &str) -> Result<String, String> {
+                if !self.panicked.swap(true, Ordering::SeqCst) {
+                    panic!("simulated engine panic inside a statement");
+                }
+                Ok("ok".to_string())
+            }
+        }
+        // The flag is shared across engine instances: the first engine's first statement panics,
+        // every later engine (and therefore the second run) evaluates normally.
+        let panicked = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&panicked);
+        let mut workbench = Workbench::with_factory(Box::new(move || {
+            Box::new(PanicEngine {
+                panicked: Arc::clone(&flag),
+            })
+        }));
+        let source = "a = 1\nb = 2\n".to_string();
+        workbench.set_source(0, source.clone());
+        assert!(workbench.run_active());
+        assert!(
+            workbench.wait_until_idle(Duration::from_secs(10)),
+            "the panicking run must reach a terminal state"
+        );
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Failed);
+        assert!(!workbench.is_running(), "the run lock must be released");
+        assert_eq!(document.source, source, "the buffer must survive the panic");
+        let diagnostic = workbench
+            .diagnostic(0)
+            .expect("the panic produces a diagnostic for the current revision");
+        assert!(
+            diagnostic.message.contains("simulated engine panic"),
+            "diagnostic was {:?}",
+            diagnostic.message
+        );
+        assert!(
+            document
+                .snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.committed_steps)
+                .unwrap_or(usize::MAX)
+                == 0,
+            "a panic in the first statement commits nothing"
+        );
+        let log = all_log_text(&workbench, 0);
+        assert!(
+            log.contains("Run failed after 0 committed statements"),
+            "the panic must be reported as a recoverable failure: {log:?}"
+        );
+        assert!(
+            log.contains("simulated engine panic"),
+            "the log must name the panic: {log:?}"
+        );
+
+        // The same document runs again, and the engine instance that panicked is not reused.
+        assert!(
+            workbench.run_active(),
+            "a new run must be accepted after a panic"
+        );
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Finished);
+        let snapshot = document.snapshot.as_ref().expect("the recovery run publishes");
+        assert_eq!(snapshot.result, "ok");
+        assert_eq!(snapshot.committed_steps, 2);
+    }
+
+    /// RUN-019: the precision input rejects every invalid shape locally with guidance, changes
+    /// nothing, and applies a valid value.
+    #[test]
+    fn the_precision_input_rejects_invalid_values_with_guidance() {
+        let mut workbench = fake_workbench();
+        let before = workbench.documents()[0].precision;
+        let cases = [
+            ("", "the field is empty"),
+            ("abc", "is not a number"),
+            ("-5", "is not a number"),
+            ("1.5", "is not a number"),
+            ("0", "out of range"),
+            ("100001", "out of range"),
+            ("99999999999999999999999999", "too large"),
+        ];
+        for (text, needle) in cases {
+            let guidance = workbench
+                .set_active_precision_text(text)
+                .expect_err("an invalid precision must be rejected");
+            assert!(
+                guidance.contains(needle),
+                "input {text:?} gave {guidance:?}, expected {needle:?}"
+            );
+            assert!(
+                guidance.contains("from 1 to 100000"),
+                "the guidance must state the accepted range: {guidance:?}"
+            );
+            assert_eq!(
+                workbench.documents()[0].precision, before,
+                "input {text:?} must not change the document precision"
+            );
+        }
+        let log = all_log_text(&workbench, 0);
+        assert_eq!(
+            log.matches("Precision must be a whole number of digits")
+                .count(),
+            cases.len(),
+            "every rejection must be explained in the log: {log:?}"
+        );
+
+        assert_eq!(
+            workbench.set_active_precision_text(" 250 "),
+            Ok(250),
+            "surrounding whitespace is accepted"
+        );
+        assert_eq!(workbench.documents()[0].precision, 250);
+        assert!(
+            workbench.status_text(1, 1).contains("precision 250"),
+            "status was {:?}",
+            workbench.status_text(1, 1)
+        );
+    }
+
+    /// RUN-020: a script's `setprecision(n)` updates the document precision (the toolbar and
+    /// status source), the snapshot names the engine's precision, and the resulting precision
+    /// change invalidates the cache: the first repeat reuses nothing, then reuse resumes.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn a_script_setprecision_updates_the_toolbar_precision_and_invalidates_the_cache() {
+        let mut workbench = real_workbench();
+        workbench.set_source(0, "setprecision(20)\nsqrt(2)\n".to_string());
+        assert!(
+            workbench.documents()[0].precision != 20,
+            "the document starts at the default precision"
+        );
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(30)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Finished);
+        assert_eq!(
+            document.precision, 20,
+            "the script's setprecision must update the document precision the toolbar reads"
+        );
+        assert!(
+            workbench.status_text(1, 1).contains("precision 20"),
+            "status was {:?}",
+            workbench.status_text(1, 1)
+        );
+        let first = document.snapshot.clone().expect("the run publishes");
+        assert_eq!(
+            first.precision, 20,
+            "the snapshot names the precision the engine rendered at"
+        );
+        let digits = first
+            .result
+            .split_once('.')
+            .map(|(_, fraction)| fraction.chars().take_while(|c| c.is_ascii_digit()).count())
+            .unwrap_or(0);
+        assert_eq!(
+            digits, 19,
+            "sqrt(2) at 20 digits renders 19 fractional digits: {:?}",
+            first.result
+        );
+        let log = all_log_text(&workbench, 0);
+        assert!(
+            log.contains("Script set precision"),
+            "the precision adoption must be logged: {log:?}"
+        );
+
+        // Run 2: the same source. The precision-setting statement is effectful, so it evaluates
+        // again; and the adopted document precision changed the cache key of the sqrt, so nothing
+        // is reused this time.
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(30)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.reused, 0, "the precision change must reuse nothing");
+        assert_eq!(document.committed_reused, vec![false, false]);
+        let second = document.snapshot.clone().expect("the second run publishes");
+        assert_eq!(
+            second.result, first.result,
+            "the value must not change with the cache invalidation"
+        );
+
+        // Run 3: identical precision and inputs, so the sqrt is now served from the cache while
+        // the effectful setprecision still evaluates.
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(30)));
+        let document = &workbench.documents()[0];
+        assert_eq!(
+            document.committed_reused,
+            vec![false, true],
+            "reuse must resume once the precision is stable"
+        );
+        assert_eq!(document.reused, 1);
+    }
+
+    /// RUN-007: the desktop's committed-prefix behaviour on failure matches the captured web
+    /// Studio oracle (`REF-error.json`): same variables, same missing write, same diagnostic
+    /// count and line.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn the_failed_run_matches_the_oracle_ref_error_prefix() {
+        let oracle = lovelace_json::Json::parse(
+            include_str!("../../../docs/goal-desktop-v4/reference/REF-error.json")
+                .trim_start_matches('\u{feff}'),
+        )
+        .expect("REF-error.json is valid JSON");
+        let final_state = oracle
+            .get("steps")
+            .and_then(|steps| steps.as_arr())
+            .and_then(|steps| steps.first())
+            .and_then(|step| step.get("final"))
+            .expect("REF-error carries one final run state");
+        assert_eq!(
+            final_state.get("status").and_then(|value| value.as_str()),
+            Some("error"),
+            "the oracle recorded a failed run"
+        );
+        let response = final_state.get("response").expect("the oracle response");
+        let oracle_variables: Vec<String> = response
+            .get("variables")
+            .and_then(|value| value.as_arr())
+            .expect("the oracle's variable list")
+            .iter()
+            .filter_map(|variable| variable.get("name").and_then(|name| name.as_str()))
+            .map(str::to_string)
+            .collect();
+        assert!(
+            oracle_variables.contains(&"y".to_string()),
+            "oracle variables were {oracle_variables:?}"
+        );
+        assert!(
+            !oracle_variables.contains(&"z".to_string()),
+            "the failing statement's write must not exist in the oracle: {oracle_variables:?}"
+        );
+        let oracle_diagnostics = response
+            .get("diagnostics")
+            .and_then(|value| value.as_arr())
+            .expect("the oracle's diagnostics");
+        assert_eq!(oracle_diagnostics.len(), 1);
+        let oracle_line = oracle_diagnostics[0]
+            .get("line")
+            .and_then(|value| match value {
+                lovelace_json::Json::Num(text) => text.parse::<u64>().ok(),
+                _ => None,
+            });
+        assert_eq!(oracle_line, Some(2));
+
+        // The same script through the desktop.
+        let mut workbench = real_workbench();
+        let source = "y = 1\nz = y + missing_name\n";
+        workbench.set_source(0, source.to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(30)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Failed);
+        let snapshot = document.snapshot.as_ref().expect("the committed prefix");
+        let names: Vec<&str> = snapshot
+            .variables
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect();
+        assert!(names.contains(&"y"), "desktop variables were {names:?}");
+        assert!(
+            !names.contains(&"z"),
+            "the desktop must not write the failing statement either: {names:?}"
+        );
+        assert_eq!(snapshot.committed_steps, 1);
+        let diagnostic = workbench.diagnostic(0).expect("the failure diagnostic");
+        assert_eq!(diagnostic.line, 2);
+        assert_eq!(
+            snapshot.diagnostic, 
+            Some(diagnostic.render_fully()),
+            "the committed snapshot names the same diagnostic the editor decorates"
+        );
     }
 }

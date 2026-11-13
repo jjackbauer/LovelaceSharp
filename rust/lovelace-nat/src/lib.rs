@@ -10,6 +10,8 @@ pub(crate) mod newton;
 pub(crate) mod ntt;
 
 #[cfg(test)]
+mod proof_small_domain;
+#[cfg(test)]
 mod round39_natural_api;
 
 pub use digit_store::{DigitStore, DigitStoreError};

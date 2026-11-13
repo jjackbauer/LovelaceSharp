@@ -24,6 +24,7 @@ fn run_envelope(script: &str) -> (Json, i32) {
         function_pattern: None,
         describe_function: None,
         function_limit: 50,
+        repl: false,
     };
     let script = ScriptSource::new(SourceIdentity::eval(), script);
     let mut engine = Engine::new();

@@ -1880,6 +1880,7 @@ dependencies = [
  "egui",
  "lovelace-json",
  "lovelace-lang",
+ "lovelace-symbolics",
  "resvg",
 ]
 
@@ -1893,6 +1894,15 @@ dependencies = [
 [[package]]
 name = "lovelace-json"
 version = "0.1.0"
+
+[[package]]
+name = "lovelace-know"
+version = "0.1.0"
+dependencies = [
+ "lovelace-int",
+ "lovelace-json",
+ "lovelace-nat",
+]
 
 [[package]]
 name = "lovelace-lang"

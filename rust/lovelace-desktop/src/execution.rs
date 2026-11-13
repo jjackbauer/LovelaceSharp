@@ -17,7 +17,9 @@
 //!
 //! Diagnostics: [crate::engine::Evaluator] surfaces only a message string, so a position is
 //! recovered from the message when the engine names one ("... at position N.") and translated
-//! back into the full source; otherwise the diagnostic points at the statement start.
+//! back into the full source; otherwise the diagnostic points at the statement start. An engine
+//! that publishes its structured error record (code, category, suggestions) contributes those
+//! fields through [crate::engine::Evaluator::last_error] (RUN-014).
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -28,7 +30,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crate::engine::{CachedValue, EngineState, Evaluator, PlotCapture};
+use crate::engine::{CachedValue, EngineState, Evaluator, PlotCapture, DEFAULT_PRECISION};
 use crate::incremental::{CachedEntry, DocumentCache, ProgramAnalysis, StatementKey, StepDecision};
 use crate::statements::Statement;
 use lovelace_json::Json;
@@ -94,6 +96,13 @@ pub struct WorkspaceSnapshot {
     pub committed_steps: usize,
     /// How many sliced statements the run that produced this snapshot visited.
     pub total: usize,
+    /// RUN-020: the engine's display precision when the snapshot was taken.
+    ///
+    /// A script's `setprecision(n)` changes the engine's precision mid-run, so this is the only
+    /// honest source for what the app should show as the active precision: the value submitted
+    /// with the run is what the run *started* at. A script that never calls `setprecision`
+    /// reports the submitted value back unchanged.
+    pub precision: usize,
     /// The failure that ended the run, when it ended in one.
     pub diagnostic: Option<String>,
 }
@@ -261,6 +270,16 @@ pub enum SubmitError {
 pub struct Diagnostic {
     /// The engine's message, unchanged.
     pub message: String,
+    /// RUN-014: the engine's stable wire code, when it publishes one.
+    ///
+    /// `None` for an engine without the [`crate::engine::Evaluator::last_error`] seam; the log and
+    /// the editor header then show the message and position without inventing a code (the C#
+    /// oracle itself leaves `diagnostics[].code` empty — reference/oracle-defects.md OD-2).
+    pub code: Option<String>,
+    /// RUN-014: the engine's stable wire category, when it publishes one.
+    pub category: Option<String>,
+    /// RUN-014: the closest registered names the engine offered for an unresolved name.
+    pub suggestions: Vec<String>,
     /// The 0-based index of the statement that failed.
     pub statement_index: usize,
     /// The 1-based line the failing statement starts on.
@@ -295,6 +314,9 @@ impl Diagnostic {
         let (line, column) = crate::statements::line_column(source, byte_offset);
         Diagnostic {
             message,
+            code: None,
+            category: None,
+            suggestions: Vec::new(),
             statement_index: statement.index(),
             statement_line: statement.start_line(),
             byte_offset,
@@ -303,12 +325,57 @@ impl Diagnostic {
         }
     }
 
+    /// Attaches the engine's structured classification (RUN-014).
+    ///
+    /// The classification is only ever copied from the engine that produced the failure, so a
+    /// diagnostic either names the engine's own code and category or names none.
+    pub fn classify(&mut self, error: Option<crate::engine::EngineError>) {
+        let Some(error) = error else {
+            return;
+        };
+        if error.is_empty() {
+            return;
+        }
+        if !error.code.is_empty() {
+            self.code = Some(error.code);
+        }
+        if !error.category.is_empty() {
+            self.category = Some(error.category);
+        }
+        self.suggestions = error.suggestions;
+    }
+
     /// Renders the diagnostic for a [WorkspaceSnapshot] and the log pane.
     pub fn render(&self) -> String {
         format!(
             "line {}, column {}: {}",
             self.line, self.column, self.message
         )
+    }
+
+    /// Renders every field RUN-014 requires: code, category, message, line and column, plus the
+    /// engine's suggestions when it offered any.
+    ///
+    /// The field names are spelled out so a log line or a hover text is self-describing and a
+    /// reader (or a UIA capture) can assert each field independently.
+    pub fn render_fully(&self) -> String {
+        let mut text = String::new();
+        match (&self.code, &self.category) {
+            (Some(code), Some(category)) => {
+                text.push_str(&format!("code {code}, category {category}, "));
+            }
+            (Some(code), None) => text.push_str(&format!("code {code}, ")),
+            (None, Some(category)) => text.push_str(&format!("category {category}, ")),
+            (None, None) => {}
+        }
+        text.push_str(&format!(
+            "line {}, column {}, message: {}",
+            self.line, self.column, self.message
+        ));
+        if !self.suggestions.is_empty() {
+            text.push_str(&format!(" suggestions: {}.", self.suggestions.join(", ")));
+        }
+        text
     }
 }
 
@@ -633,6 +700,11 @@ struct Progress {
     /// erase an earlier one: the real engine clears its own capture at the start of every
     /// `eval`, and this core evaluates one statement at a time.
     plot: Option<PlotCapture>,
+    /// RUN-020: the engine's current display precision, captured at each commit point.
+    ///
+    /// It starts at the precision submitted with the run and follows a `setprecision(n)`
+    /// statement, so the terminal snapshot names the precision the engine actually rendered at.
+    precision: usize,
     /// True once a terminal event has been published for the run.
     ended: bool,
 }
@@ -650,6 +722,7 @@ impl Default for Progress {
             functions: Vec::new(),
             state: EngineState::default(),
             plot: None,
+            precision: DEFAULT_PRECISION,
             ended: false,
         }
     }
@@ -687,12 +760,13 @@ impl RunWorker {
         // every exit path so the next run reuses across runs.
         let mut cache = self.take_cache();
         let mut progress = Progress::default();
+        progress.precision = self.precision;
         match panic::catch_unwind(AssertUnwindSafe(|| self.execute(&mut progress, &mut cache))) {
             Ok(()) => {}
             Err(payload) => {
                 if !progress.ended {
                     let diagnostic = self.diagnostic_for(progress.current, panic_text(payload));
-                    let snapshot = self.snapshot(&progress, Some(diagnostic.render()));
+                    let snapshot = self.snapshot(&progress, Some(diagnostic.render_fully()));
                     self.publish(snapshot.clone());
                     self.retire();
                     self.emit(DesktopEvent::Failed {
@@ -847,6 +921,9 @@ impl RunWorker {
                     }
                     self.drain_output(&mut engine, progress);
                     progress.committed += 1;
+                    // RUN-020: a `setprecision(n)` statement changes the engine's precision; the
+                    // snapshot carries what the engine actually uses, not what was submitted.
+                    progress.precision = self.engine_precision(&engine);
                     // The kind-aware capture the completion catalogue reads. It is taken at the
                     // same commit point as the pane lists, so the popup can never offer a
                     // variable the displayed workspace does not have.
@@ -885,7 +962,14 @@ impl RunWorker {
                         self.finish_cancelled(progress);
                         return;
                     }
-                    let diagnostic = Diagnostic::for_statement(statement, &self.source, message);
+                    let mut diagnostic = Diagnostic::for_statement(statement, &self.source, message);
+                    // RUN-014: the engine's own code/category/suggestions for exactly this
+                    // failure, captured from the evaluator that returned it.
+                    let classification =
+                        panic::catch_unwind(AssertUnwindSafe(|| engine.last_error()))
+                            .ok()
+                            .flatten();
+                    diagnostic.classify(classification);
                     self.fail(progress, diagnostic);
                     return;
                 }
@@ -987,6 +1071,7 @@ impl RunWorker {
         progress.result_structured = entry.structured.clone();
         progress.result_inspection = entry.inspection.clone();
         progress.committed += 1;
+        progress.precision = self.engine_precision(engine);
         self.capture_symbols(engine, progress);
         true
     }
@@ -1060,7 +1145,8 @@ impl RunWorker {
 
     /// Publishes a final snapshot and the single Failed event for the run.
     fn fail(&self, progress: &mut Progress, diagnostic: Diagnostic) {
-        let snapshot = self.snapshot(progress, Some(diagnostic.render()));
+        // RUN-014: the committed snapshot carries every diagnostic field, not just the message.
+        let snapshot = self.snapshot(progress, Some(diagnostic.render_fully()));
         self.publish(snapshot.clone());
         self.retire();
         self.emit(DesktopEvent::Failed {
@@ -1086,6 +1172,7 @@ impl RunWorker {
             revision: self.revision,
             committed_steps: progress.committed,
             total: self.statements.len(),
+            precision: progress.precision,
             diagnostic,
         }
     }
@@ -1096,6 +1183,9 @@ impl RunWorker {
             Some(statement) => Diagnostic::for_statement(statement, &self.source, message),
             None => Diagnostic {
                 message,
+                code: None,
+                category: None,
+                suggestions: Vec::new(),
                 statement_index: index,
                 statement_line: 1,
                 byte_offset: 0,
@@ -1364,6 +1454,7 @@ mod tests {
             revision,
             committed_steps: 1,
             total: 1,
+            precision: DEFAULT_PRECISION,
             diagnostic: None,
         }
     }
@@ -2197,6 +2288,109 @@ mod tests {
             *names.lock().unwrap_or_else(|error| error.into_inner()),
             vec!["lovelace-lang"],
             "the default build must use the real engine"
+        );
+    }
+
+    /// RUN-005 evidence, not a pass: the host's only sub-progress is the committed/total
+    /// fraction, and the real engine publishes nothing while a long kernel runs.
+    ///
+    /// The web Studio reference publishes kernel sub-progress (`Interpreter.SubProgress("sqrt")`
+    /// passed into `Real.SqrtAsync`; `REF-digits`/`REF-precision` capture `subProgress=1,
+    /// subLabel=sqrt`). The Rust engine has no such callback, so the desktop can only report
+    /// statement granularity. This test pins exactly that gap: one single-statement kernel
+    /// delivers **zero** events between `StepStarted` and `StepCommitted`, and the one
+    /// `SubProgress` it does deliver carries `1/1` (the committed fraction), never a phase name.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn t10_a_long_sqrt_kernel_publishes_no_kernel_sub_progress() {
+        let host = ExecutionHost::new(Box::new(|| Box::new(crate::engine::RealEngine::new())));
+        let document = DocumentId(7);
+        let started = Instant::now();
+        let _handle = host
+            .submit(
+                document,
+                SourceRevision(1),
+                "sqrt(2)\n".to_string(),
+                50_000,
+            )
+            .expect("the long kernel must be submitted");
+        let mut events = Vec::new();
+        loop {
+            let Some(event) = host.next_event(Duration::from_secs(120)) else {
+                panic!("the long kernel delivered no terminal event");
+            };
+            let terminal = matches!(
+                event.event,
+                DesktopEvent::Finished { .. }
+                    | DesktopEvent::Cancelled { .. }
+                    | DesktopEvent::Failed { .. }
+            );
+            events.push(event);
+            if terminal {
+                break;
+            }
+        }
+        let elapsed = started.elapsed();
+        let summary = |events: &[SequencedEvent]| {
+            events
+                .iter()
+                .map(|event| event_summary(&event.event))
+                .collect::<Vec<_>>()
+        };
+        assert!(
+            matches!(
+                events.last().map(|event| &event.event),
+                Some(DesktopEvent::Finished { .. })
+            ),
+            "the probe expects a completed kernel: {:?}",
+            summary(&events)
+        );
+        let step_started = events
+            .iter()
+            .position(|event| matches!(event.event, DesktopEvent::StepStarted { .. }))
+            .expect("one StepStarted");
+        let step_committed = events
+            .iter()
+            .position(|event| matches!(event.event, DesktopEvent::StepCommitted { .. }))
+            .expect("one StepCommitted");
+        assert!(
+            step_committed > step_started,
+            "the commit must follow the start: {:?}",
+            summary(&events)
+        );
+        let between = &events[step_started + 1..step_committed];
+        assert!(
+            between.is_empty(),
+            "the engine published events during the kernel (the missing seam would place a \
+             phase/fraction here): {:?}",
+            summary(between)
+        );
+        let sub_progress: Vec<(f32, String)> = events
+            .iter()
+            .filter_map(|event| match &event.event {
+                DesktopEvent::SubProgress {
+                    fraction, label, ..
+                } => Some((*fraction, label.clone())),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            sub_progress,
+            vec![(1.0, "1/1".to_string())],
+            "the only sub-progress must be the committed fraction, with a statement label"
+        );
+        assert!(
+            elapsed > Duration::from_millis(500),
+            "the kernel must really be long enough to need sub-progress; it took {elapsed:?}"
+        );
+        println!(
+            "RUN-005 probe: sqrt(2) at 50000 digits took {:.0} ms with {} event(s) between \
+             StepStarted and StepCommitted; the only SubProgress was label={:?} fraction={}; \
+             REF-digits/REF-precision publish subProgress=1 subLabel=sqrt",
+            elapsed.as_secs_f64() * 1000.0,
+            between.len(),
+            sub_progress[0].1,
+            sub_progress[0].0
         );
     }
 }
