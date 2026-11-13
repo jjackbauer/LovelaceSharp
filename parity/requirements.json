@@ -32,9 +32,9 @@
    "HARNESS": 12
   },
   "byStatus": {
-   "met": 0,
-   "partial": 0,
-   "unmet": 262,
+   "met": 180,
+   "partial": 52,
+   "unmet": 30,
    "excluded": 0
   }
  },
@@ -110,10 +110,14 @@
    "family": "ARRAY",
    "title": "Preserve scalar, vector, matrix, and higher-rank array distinctions.",
    "sourceLine": 203,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`cargo test -p lovelace-array` (61 tests, exit 0)",
+    "`lovelace-lang::suite_parity_batch::arraytests_givenmatrixliteral_producesrank2array`",
+    "`lovelace-array::tests::Scalar_GivenValue_HasRankZeroAndSingleElement`"
+   ],
    "note": ""
   },
   {
@@ -121,10 +125,14 @@
    "family": "ARRAY",
    "title": "Preserve shape, rank, strides, and element ordering.",
    "sourceLine": 204,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-array::tests::FromVec_GivenCubeShapeAndEightValues_ExposesShapeRankNumelStrides`",
+    "`lovelace-array::tests::IterAndIntoIterator_GivenMatrix_YieldRowMajorOrder`",
+    "`lovelace-array::dense::tests::packed_construction_exposes_shape_rank_numel_and_strides`"
+   ],
    "note": ""
   },
   {
@@ -132,10 +140,14 @@
    "family": "ARRAY",
    "title": "Match indexing, negative/invalid indices, partial indexing, and slicing.",
    "sourceLine": 205,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-array::tests::Get_GivenFirstAxisOutOfRange_ReturnsNone`",
+    "`lovelace-array::tests::IndexPartial_GivenCubeFirstAxis_ReturnsLowerRankSubArray`",
+    "`lovelace-array::tests::Slice_GivenNegativeBounds_UsesPythonSemantics`"
+   ],
    "note": ""
   },
   {
@@ -143,21 +155,32 @@
    "family": "ARRAY",
    "title": "Implement reshape, transpose, squeeze, expand, flatten, concat, and append.",
    "sourceLine": 206,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-array::tests::Reshape_GivenMatchingNumel_PreservesRowMajorOrder`",
+    "`lovelace-array::tests::Transpose_GivenMatrix_ReversesAxes`",
+    "`lovelace-array::tests::Squeeze_GivenOneTwoOneThree_RemovesSingletonDimensions`",
+    "`lovelace-array::tests::Flatten_GivenMatrix_ReturnsRowMajorVector`",
+    "`lovelace-array::tests::Concat_GivenMatricesOnAxisZero_StacksRows`",
+    "`lovelace-array::tests::Append_GivenMatrixAlongAxisZero_Concatenates`"
+   ],
+   "note": "Reshape/transpose/squeeze/flatten/concat/append are implemented and tested; 'expand' has no C# NdArray counterpart in the frozen tree (grep for Expand in Lovelace.Array finds none), so there is nothing to port."
   },
   {
    "id": "ARRAY-005",
    "family": "ARRAY",
    "title": "Match broadcasting rules and their error messages.",
    "sourceLine": 207,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-array::tests::ZipMapBroadcast_GivenScalar_ReusesValue`",
+    "`lovelace-array::tests::ZipMapBroadcast_GivenIncompatibleShapes_ReturnsShapeMismatch`",
+    "`lovelace-lang::round95_engine_singletons::broadcasttests_incompatible_shapes_are_still_refused`"
+   ],
    "note": ""
   },
   {
@@ -165,10 +188,14 @@
    "family": "ARRAY",
    "title": "Match reductions, including axis behavior.",
    "sourceLine": 208,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-array::tests::SumAxis_GivenMatrix_ReducesRequestedAxis`",
+    "`lovelace-array::tests::ProdAxis_GivenMatrix_ReducesRequestedAxis`",
+    "`lovelace-array::tests::Reductions_GivenEmptyArray_UseIdentitiesAndEmptyReduction`"
+   ],
    "note": ""
   },
   {
@@ -176,21 +203,31 @@
    "family": "ARRAY",
    "title": "Preserve typed-field arithmetic without silently falling back to machine floating point.",
    "sourceLine": 209,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-array::tests::FieldForI64_GivenOperations_MatchesIntegerArithmetic`",
+    "`lovelace-lang::round67_modus::real_add_kernel_matches_direct_real_addition`",
+    "`lovelace-array::tests::ZipMap_GivenEqualShapes_AppliesElementwise`"
+   ],
+   "note": "No machine float fallback: the array kernel is generic over exact field operations."
   },
   {
    "id": "ARRAY-008",
    "family": "ARRAY",
    "title": "Match dot products, matrix multiplication, determinants, inverses, trace, rank, and linear-system solving.",
    "sourceLine": 210,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::suite_parity_batch::arraytests_dot_innerproduct`",
+    "`lovelace-lang::suite_parity_batch::arraytests_matmul_2x2`",
+    "`lovelace-lang::suite_tail_round35::array_det_inverse_trace`",
+    "`lovelace-lang::round92_symbolic_families::linsolvechecktests_solve3x3_verifiesbynumericsubstitution`",
+    "`lovelace-lang::suite_parity_batch::descriptor_example_081_matrix_rank`"
+   ],
    "note": ""
   },
   {
@@ -198,10 +235,15 @@
    "family": "ARRAY",
    "title": "Test zero-dimensional, empty, singular, non-square, and incompatible-shape cases.",
    "sourceLine": 211,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-array::tests::Reductions_GivenEmptyArray_UseIdentitiesAndEmptyReduction`",
+    "`lovelace-array::tests::FromRows_GivenRaggedRows_ReturnsRagged`",
+    "`lovelace-symbolics::symbolic_matrix::tests::determinant_of_a_non_square_matrix_is_refused`",
+    "`lovelace-lang::round42_differential_classes::round42_singular_numeric_inverse_names_the_full_refusal`"
+   ],
    "note": ""
   },
   {
@@ -209,11 +251,15 @@
    "family": "ARRAY",
    "title": "Verify matrix identities on generated exact inputs.",
    "sourceLine": 212,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::round66_resweep::acceptance_inverse_times_original_is_identity`",
+    "`lovelace-symbolics::symbolic_matrix::tests::inverse_identity_holds_only_where_det_is_non_zero`",
+    "`lovelace-lang::symbolics_tail_round34::acceptance_optimize_lower_evaluate_round_trip`"
+   ],
+   "note": "Identities are verified on exact symbolic/generated inputs."
   },
   {
    "id": "CLI-001",
@@ -223,8 +269,11 @@
    "status": "unmet",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "parity/projects.toml: Lovelace.Console status=absent, reason 'No interactive REPL crate exists'",
+    "parity/manifest.toml: 15/15 Lovelace.Console.Tests cases disposition=excluded"
+   ],
+   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
   },
   {
    "id": "CLI-002",
@@ -234,8 +283,10 @@
    "status": "unmet",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-desktop::statements::tests::t1_a_brace_block_and_a_semicolon_string_are_each_one_statement` (desktop only, not a REPL)"
+   ],
+   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
   },
   {
    "id": "CLI-003",
@@ -245,8 +296,10 @@
    "status": "unmet",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-desktop::history::tests::ctrl_z_undoes_ctrl_y_and_ctrl_shift_z_redo` (desktop editor only, not a REPL)"
+   ],
+   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
   },
   {
    "id": "CLI-004",
@@ -256,8 +309,10 @@
    "status": "unmet",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-run::round19_run_batch` CLI flags; no REPL command loop"
+   ],
+   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
   },
   {
    "id": "CLI-005",
@@ -267,8 +322,10 @@
    "status": "unmet",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::suite_engine_batch::evaluate_given_assignment_exposes_variable_in_variables_dictionary` (engine API, not a REPL)"
+   ],
+   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
   },
   {
    "id": "CLI-006",
@@ -278,8 +335,10 @@
    "status": "unmet",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::suite_engine_batch::evaluate_given_result_stores_in_underscore_variable` (engine API, not a REPL)"
+   ],
+   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
   },
   {
    "id": "CLI-007",
@@ -289,44 +348,53 @@
    "status": "unmet",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-run::error_taxonomy_batch` (runner, not a REPL)"
+   ],
+   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
   },
   {
    "id": "CPLX-001",
    "family": "CPLX",
    "title": "Match arithmetic and rendering across real and imaginary components.",
    "sourceLine": 191,
-   "status": "partial",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-025"
+    "`lovelace-lang::complex_round24::complex_arithmetic_is_component_wise_and_exact`",
+    "`lovelace-lang::complex_round24::complex_parse_and_display_round_trip_the_reference_forms`",
+    "`node parity/tools/gate-fixtures.mjs` exit 0: complex fixture"
    ],
-   "note": "DFT arms and rendering now match the oracle at 25+ digits, including zero-imaginary Complex elements; broader complex arithmetic is not yet differentially clean."
+   "note": ""
   },
   {
    "id": "CPLX-002",
    "family": "CPLX",
    "title": "Preserve arbitrary precision.",
    "sourceLine": 192,
-   "status": "partial",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-025"
+    "`lovelace-lang::complex_round24::lcomplex128_covers_the_same_surface_at_38_digits`",
+    "`lovelace-lang::complex_round24::complex_magnitude_is_the_three_four_five_triangle`"
    ],
-   "note": "Arbitrary precision is preserved through the decimal complex transform; the fixed-width optimized representations (CPLX-003) are absent."
+   "note": ""
   },
   {
    "id": "CPLX-003",
    "family": "CPLX",
    "title": "Support the C# fixed-width optimized representations where their observable performance contract matters.",
    "sourceLine": 193,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::complex_round24::lcomplex64_parses_adds_and_conjugates_like_the_reference`",
+    "`lovelace-lang::complex_round24::lcomplex128_covers_the_same_surface_at_38_digits`",
+    "`lovelace-lang::fixed_dsp_tests::convolve64_given_two_ones_produces_triangle`"
+   ],
    "note": ""
   },
   {
@@ -334,10 +402,13 @@
    "family": "CPLX",
    "title": "Promote to arbitrary precision without silently saturating or losing exactness.",
    "sourceLine": 194,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::complex_round24::lcomplex64_promotes_on_overflow_instead_of_rounding`",
+    "`lovelace-lang::complex_round24::lcomplex64_reciprocal_multiplies_to_one`"
+   ],
    "note": ""
   },
   {
@@ -345,10 +416,14 @@
    "family": "CPLX",
    "title": "Verify optimized results against arbitrary-precision results.",
    "sourceLine": 195,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::complex_round24::limited_precision_takes_the_fixed_path_and_stays_exact`",
+    "`lovelace-lang::complex_round24::lcomplex128_covers_the_same_surface_at_38_digits`",
+    "`lovelace-lang::complex_round24::lcomplex64_converts_to_and_from_the_arbitrary_precision_type`"
+   ],
    "note": ""
   },
   {
@@ -356,10 +431,14 @@
    "family": "CPLX",
    "title": "Preserve real-to-complex coercion and domain behavior.",
    "sourceLine": 196,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::complex_round24::scalar_re_im_conj_promote_every_numeric_kind`",
+    "`lovelace-lang::complex_round24::complex_is_a_domain_constant_and_complex_takes_no_arguments`",
+    "`lovelace-lang::complex_round24::complex_exactness_is_both_parts`"
+   ],
    "note": ""
   },
   {
@@ -367,21 +446,29 @@
    "family": "DESK",
    "title": "Deliver an actual native desktop shell on the agreed supported platforms.",
    "sourceLine": 346,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "rust/lovelace-desktop/src/main.rs: native eframe/egui workbench (no web runtime)",
+    "`cargo test -p lovelace-desktop` (355 tests, exit 0)",
+    "`powershell -File tools/desktop-gate.ps1 -Readiness` exit 1: GATE FAIL [READINESS], 148 blocking problems, 47/171 P0 PASS, 123 NOT_TESTED"
+   ],
+   "note": "A native Windows shell exists and its tests pass, but the desktop-v4 readiness gate still fails (148 blockers) and Linux/macOS are deferred by user-approved DEV-002; delivery on the agreed platform is not certified."
   },
   {
    "id": "DESK-002",
    "family": "DESK",
    "title": "Preserve editor, workspace, graph, and logs panes.",
    "sourceLine": 347,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::ui::app::tests::a_frame_renders_the_same_assembled_view_the_workbench_published`",
+    "`lovelace-desktop::workbench::tests::a_finished_run_publishes_result_steps_variables_and_logs`",
+    "`lovelace-desktop::ui::app::tests::the_workspace_inspector_tab_swaps_the_view_and_the_result_tab_restores_it`"
+   ],
    "note": ""
   },
   {
@@ -389,10 +476,14 @@
    "family": "DESK",
    "title": "Preserve the symbolic inspector.",
    "sourceLine": 348,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::inspector::tests::a_full_payload_reads_all_six_sections_from_the_engine_data`",
+    "`lovelace-desktop::ui::app::tests::the_inspector_paints_all_six_sections_from_the_engine_payload`",
+    "`lovelace-desktop::engine::inspection::tests::a_symbolic_expression_projects_its_tree_from_the_engine_ast`"
+   ],
    "note": ""
   },
   {
@@ -400,10 +491,14 @@
    "family": "DESK",
    "title": "Support multiple independent documents and engines.",
    "sourceLine": 349,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::workbench::tests::starts_with_two_independent_document_tabs`",
+    "`lovelace-desktop::workbench::tests::tab_isolation_running_one_document_does_not_touch_the_other`",
+    "`lovelace-desktop::app::tests::new_document_appends_and_selects_a_fresh_tab`"
+   ],
    "note": ""
   },
   {
@@ -411,10 +506,14 @@
    "family": "DESK",
    "title": "Preserve per-document precision and execution state.",
    "sourceLine": 350,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::app::tests::precision_is_document_scoped`",
+    "`lovelace-desktop::workbench::tests::precision_is_document_scoped_and_clamped`",
+    "`lovelace-desktop::app::tests::tab_isolation_running_in_one_document_does_not_touch_the_other`"
+   ],
    "note": ""
   },
   {
@@ -422,10 +521,13 @@
    "family": "DESK",
    "title": "Execute scripts asynchronously without blocking input or rendering.",
    "sourceLine": 351,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::execution::tests::t2_submit_does_not_block_and_run_started_arrives_quickly`",
+    "`lovelace-desktop::workbench::tests::poll_report_measures_a_nonblocking_next_event_path_while_running`"
+   ],
    "note": ""
   },
   {
@@ -433,10 +535,14 @@
    "family": "DESK",
    "title": "Support cancellation with consistent committed-state behavior.",
    "sourceLine": 352,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::execution::tests::t4_cancellation_stops_a_real_run_and_keeps_the_committed_snapshot`",
+    "`lovelace-desktop::workbench::tests::cancellation_keeps_the_committed_prefix`",
+    "`lovelace-desktop::workbench::tests::cancelling_after_statement_two_keeps_the_same_coherent_prefix`"
+   ],
    "note": ""
   },
   {
@@ -444,10 +550,14 @@
    "family": "DESK",
    "title": "Preserve incremental execution and visible statement status.",
    "sourceLine": 353,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::workbench::tests::every_committed_step_publishes_one_coherent_snapshot`",
+    "`lovelace-desktop::workbench::tests::a_failure_at_statement_three_keeps_the_committed_prefix_and_names_statement_three`",
+    "`lovelace-desktop::run_state::tests::every_run_state_has_its_own_status_strip_label`"
+   ],
    "note": ""
   },
   {
@@ -455,10 +565,15 @@
    "family": "DESK",
    "title": "Restore window layout, documents, recent files, and settings.",
    "sourceLine": 354,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::settings::tests::session_tab_order_and_active_tab_round_trip_through_disk`",
+    "`lovelace-desktop::settings::tests::recent_files_deduplicate_and_cap`",
+    "`lovelace-desktop::app::tests::layout_sizes_follow_the_saved_fractions`",
+    "`lovelace-desktop::ui::app::tests::the_session_is_written_at_a_clean_quit_and_restored_on_the_next_launch`"
+   ],
    "note": ""
   },
   {
@@ -466,10 +581,14 @@
    "family": "DESK",
    "title": "Implement crash recovery for unsaved buffers.",
    "sourceLine": 355,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::recovery::tests::a_record_round_trips_and_its_body_is_the_buffer_bytes`",
+    "`lovelace-desktop::workbench::tests::a_crash_leaves_the_record_and_the_next_launch_restores_the_exact_text_and_original_path`",
+    "`lovelace-desktop::ui::app::tests::a_corrupt_recovery_record_is_skipped_with_a_warning_and_the_launch_continues`"
+   ],
    "note": ""
   },
   {
@@ -477,10 +596,13 @@
    "family": "DESK",
    "title": "Syntax highlighting.",
    "sourceLine": 359,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::ui::syntax` (11 tests: keywords, builtins, numbers, strings, interpolation, operators)",
+    "`lovelace-desktop::ui::syntax::tests::every_shared_keyword_is_painted_as_a_keyword`"
+   ],
    "note": ""
   },
   {
@@ -488,10 +610,14 @@
    "family": "DESK",
    "title": "Context-aware autocomplete using the live builtin registry.",
    "sourceLine": 360,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::completion::tests::every_catalogue_entry_comes_from_one_of_the_live_sources`",
+    "`lovelace-desktop::ui::syntax::tests::builtins_come_from_the_engine_snapshot_not_a_desktop_list`",
+    "`lovelace-desktop::ui::app::tests::typing_sq_opens_completion_with_the_engine_function_and_enter_replaces_only_the_prefix`"
+   ],
    "note": ""
   },
   {
@@ -503,7 +629,7 @@
    "owner": "phase-6",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No bracket matching or automatic indentation is implemented; a grep of rust/lovelace-desktop/src for bracket/indent finds neither a matcher nor an auto-indent action (only unrelated message text)."
   },
   {
    "id": "DESK-014",
@@ -514,17 +640,20 @@
    "owner": "phase-6",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No find/replace, go-to-line or editing-shortcut surface exists; the keyboard module binds run/cancel/file/undo only and a grep for find/replace/goto finds none."
   },
   {
    "id": "DESK-015",
    "family": "DESK",
    "title": "Inline diagnostics with accurate source positions.",
    "sourceLine": 363,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::diagnostic_map` (8 tests: UTF-16 columns, CRLF, astral characters, combining marks)",
+    "`lovelace-desktop::ui::app::tests::failed_run_decorates_the_reported_line_and_f8_jumps_to_it_and_an_edit_clears_it`"
+   ],
    "note": ""
   },
   {
@@ -532,21 +661,29 @@
    "family": "DESK",
    "title": "Correct IME, clipboard, and Unicode handling.",
    "sourceLine": 364,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-desktop::ui::editor::tests::astral_selection_converts_to_exact_bytes_and_the_caret_utf16_column`",
+    "`lovelace-desktop::ui::editor::tests::a_combining_mark_selection_covers_the_whole_clusters_bytes`",
+    "rust/lovelace-desktop/src/win32/shell.rs: legacy Win32 EDIT control documents IME/clipboard handling"
+   ],
+   "note": "Unicode selection and CRLF/clipboard-model behaviour are tested; actual IME composition in the egui editor has no automated test."
   },
   {
    "id": "DESK-017",
    "family": "DESK",
    "title": "Per-tab undo/redo and selection preservation.",
    "sourceLine": 365,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::ui::editor::tests::each_editor_has_its_own_history`",
+    "`lovelace-desktop::ui::editor::tests::deleting_a_selection_undoes_to_the_text_and_the_selection`",
+    "`lovelace-desktop::ui::app::tests::undo_in_one_document_never_changes_the_other`"
+   ],
    "note": ""
   },
   {
@@ -554,21 +691,28 @@
    "family": "DESK",
    "title": "Efficient editing of large scripts.",
    "sourceLine": 366,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "rust/lovelace-desktop/src/ui/editor.rs: 'Virtualised code editor: only the visible rows are laid out'",
+    "`lovelace-desktop::ui::app::tests::backspace_that_joins_two_lines_keeps_the_paint_pass_in_bounds`"
+   ],
+   "note": "The editor lays out only visible rows by construction; no large-script timing test exists."
   },
   {
    "id": "DESK-019",
    "family": "DESK",
    "title": "Browse variables with their kinds and structured projections.",
    "sourceLine": 370,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::workspace_table::tests::variables_default_to_name_ascending_and_include_the_underscore_global`",
+    "`lovelace-desktop::results_tree::tests::every_captured_variable_carries_the_engine_projection`",
+    "`lovelace-desktop::results_tree::tests::a_real_nested_record_publishes_its_fields_and_nested_matrix`"
+   ],
    "note": ""
   },
   {
@@ -576,10 +720,13 @@
    "family": "DESK",
    "title": "Browse functions and help metadata.",
    "sourceLine": 371,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::workspace_table::tests::functions_show_parameters_origin_and_summary`",
+    "`lovelace-desktop::workbench::tests::completion_catalogue_offers_the_real_registry_and_a_script_defined_function`"
+   ],
    "note": ""
   },
   {
@@ -587,10 +734,14 @@
    "family": "DESK",
    "title": "Inspect symbolic expression trees, assumptions, traces, and compiled MathIR.",
    "sourceLine": 372,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::inspector::tests::a_full_payload_reads_all_six_sections_from_the_engine_data`",
+    "`lovelace-desktop::inspector::tests::a_missing_mathir_keeps_its_reason_and_leaves_the_other_sections`",
+    "`lovelace-desktop::engine::inspection::tests::a_transform_result_publishes_the_steps_and_its_conditions`"
+   ],
    "note": ""
   },
   {
@@ -598,10 +749,14 @@
    "family": "DESK",
    "title": "Render SVG plots accurately.",
    "sourceLine": 373,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::ui::plot::tests::renders_clipping_transforms_dashed_paths_and_labels`",
+    "`lovelace-desktop::ui::plot::tests::svg_export_matches_the_captured_plot_capture_bytes`",
+    "docs/goal-desktop-v4/round-33/journeys.md: J-15 PASS with a 15 000-byte SVG byte-identical to REF-plot"
+   ],
    "note": ""
   },
   {
@@ -609,10 +764,15 @@
    "family": "DESK",
    "title": "Support plot zoom, pan, fit, and export.",
    "sourceLine": 374,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-desktop::ui::plot::tests::zooming_at_a_known_point_keeps_that_point_stationary`",
+    "`lovelace-desktop::ui::plot::tests::pan_is_clamped_so_the_scene_never_leaves_the_pane`",
+    "`lovelace-desktop::ui::plot::tests::pan_then_fit_returns_the_identity_view`",
+    "`lovelace-desktop::ui::plot::tests::png_export_writes_the_requested_dimensions_and_decodes`"
+   ],
    "note": ""
   },
   {
@@ -620,55 +780,75 @@
    "family": "DESK",
    "title": "Provide native open/save dialogs and drag-and-drop.",
    "sourceLine": 375,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-desktop::ui::file_dialogs::tests::a_document_name_is_suggested_as_a_lv_file`",
+    "`lovelace-desktop::ui::app::tests::ctrl_o_opens_the_file_the_dialog_returns_and_the_tab_shows_its_name`",
+    "`lovelace-desktop::ui::app::tests::ctrl_shift_s_asks_for_a_path_and_ctrl_s_then_writes_to_it`"
+   ],
+   "note": "Native open/save dialogs are implemented and tested; drag-and-drop of files is not implemented (no dropped-file handler in the crate)."
   },
   {
    "id": "DESK-025",
    "family": "DESK",
    "title": "Detect external file modifications.",
    "sourceLine": 376,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-desktop::workbench::tests::a_journaled_record_names_the_sources_mtime_at_open`",
+    "rust/lovelace-desktop/src/workbench.rs:195 comments that conflict detection reads source_mtime"
+   ],
+   "note": "The source mtime is recorded at open, but no external-change comparison or prompt exists (a grep for conflict/external detection finds only the comment), so changes made on disk by another program are not detected."
   },
   {
    "id": "DESK-026",
    "family": "DESK",
    "title": "Support native keyboard accessibility and screen readers.",
    "sourceLine": 377,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-desktop::keyboard` (6 tests: Ctrl+Enter run, Escape cancel, file shortcuts)",
+    "`lovelace-desktop::results_tree::tests::the_accessible_name_carries_the_node_path_and_the_state`",
+    "docs/goal-desktop-v4/state.md: AccessKit UIA tree exists"
+   ],
+   "note": "Keyboard access and AccessKit/UIA names exist, but the desktop-v4 A11Y rows are NOT_TESTED and no screen-reader verification has been run."
   },
   {
    "id": "DESK-027",
    "family": "DESK",
    "title": "Support system font scaling and high-DPI displays.",
    "sourceLine": 378,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-desktop::settings::tests::out_of_range_and_wrong_typed_fields_are_clamped_with_warnings`",
+    "`lovelace-desktop::app::tests::tiny_layouts_never_produce_negative_or_overlapping_sizes`",
+    "docs/goal-desktop-v4/platform-matrix.md: TST-014 is to exercise 100/150/200% DPI"
+   ],
+   "note": "Layout clamping and egui's scale factor exist; no DPI 100/150/200% test evidence is present (the desktop readiness gate still reports TST-014 NOT_TESTED), so system scaling is unverified."
   },
   {
    "id": "DESK-028",
    "family": "DESK",
    "title": "Demonstrate the absence of a localhost HTTP listener and embedded web runtime.",
    "sourceLine": 379,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-6",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-desktop::netcheck::tests::crate_sources_never_reference_networking_apis`",
+    "`lovelace-desktop::netcheck::tests::this_test_binary_imports_no_networking_dll`",
+    "`lovelace-desktop::netcheck::tests::a_harmless_dll_is_not_flagged`",
+    "rust/lovelace-desktop/Cargo.toml: no webview/HTTP dependency"
+   ],
+   "note": "No localhost HTTP listener or embedded web runtime: the crate scans its own sources and the test binary's PE imports for networking APIs."
   },
   {
    "id": "DIFF-001",
@@ -679,9 +859,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-020"
+    "`node parity/diff/run.mjs --cases 5000 --seed 1 --no-minimize --concurrency 10` exit 0 (parity/scorecard.json D4)",
+    "the runner submits one generated script per case with identical argv/stdin to both implementations"
    ],
-   "note": "One generated script per case is submitted to both runners with identical argv and stdin."
+   "note": ""
   },
   {
    "id": "DIFF-002",
@@ -692,9 +873,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-020"
+    "parity/diff/run.mjs generator categories (arithmetic, precision, arrays, symbolic, records, errors, syntax, registry)",
+    "`node parity/diff/run.mjs --cases 5000` exit 0"
    ],
-   "note": "The generator covers arithmetic, precision, arrays, symbolic, records, errors, syntax and registry cases (observed category table)."
+   "note": ""
   },
   {
    "id": "DIFF-003",
@@ -705,9 +887,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-020"
+    "parity/diff/run.mjs cases carry precision/budget args and validate runner flags against the oracle",
+    "`node parity/diff/run.mjs --cases 5000` exit 0"
    ],
-   "note": "Cases carry args (precision/budgets) and the runner flags are validated against the oracle."
+   "note": ""
   },
   {
    "id": "DIFF-004",
@@ -718,9 +901,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-016"
+    "the comparator is structural over the whole envelope; the harness selftest proves it detects a flipped value, a dropped key, a changed scalar and a reordered array",
+    "`node parity/diff/run.mjs --cases 5000` exit 0"
    ],
-   "note": "The comparator is structural over the whole envelope; the selftest proves it detects a flipped value, a dropped key, a changed scalar and a reordered array."
+   "note": ""
   },
   {
    "id": "DIFF-005",
@@ -731,9 +915,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-016"
+    "exactly four volatile keys are normalized (revision, elapsed, elapsedTime, timings); any other changed field is reported",
+    "`node parity/diff/run.mjs --cases 5000` exit 0"
    ],
-   "note": "Exactly four volatile keys are normalised (revision, elapsed, elapsedTime, timings); a selftest corruption of any other field is reported."
+   "note": ""
   },
   {
    "id": "DIFF-006",
@@ -744,9 +929,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-020"
+    "the harness minimises a failing script while the same first difference persists",
+    "parity/diff/regressions (1874 stored cases)"
    ],
-   "note": "A delta-debugging minimiser reduces a failing script while the same first difference persists; observed minimised examples in the run report."
+   "note": ""
   },
   {
    "id": "DIFF-007",
@@ -757,9 +943,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-020"
+    "runs are seeded and stored under parity/diff/runs/<timestamp>-seed1 with manifest.json and cases.jsonl",
+    "parity/diff/regressions/*.json record the script and observed difference"
    ],
-   "note": "Runs are seeded and stored with a manifest; regression files record the script and observed difference."
+   "note": ""
   },
   {
    "id": "DIFF-008",
@@ -770,20 +957,24 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-020"
+    "parity/diff/regressions holds 1874 regression files replayed at the start of each run",
+    "`node parity/diff/run.mjs --cases 5000` exit 0"
    ],
-   "note": "33 mismatches were promoted to parity/diff/regressions and are replayed at the start of every run."
+   "note": ""
   },
   {
    "id": "DIFF-009",
    "family": "DIFF",
    "title": "Run at least 5,000 comparisons per PR and 100,000 nightly.",
    "sourceLine": 425,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`node parity/diff/run.mjs --cases 5000 --seed 1` exit 0 (5,000-case PR slice)",
+    "parity/scorecard.json differentialCases=5000"
+   ],
+   "note": "The 5,000-case PR slice is clean; no 100,000-case nightly run or nightly workflow exists, so the nightly half of the requirement is not met."
   },
   {
    "id": "DIFF-010",
@@ -794,20 +985,25 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-019",
-    "EVD-015"
+    "EVD-019: with the Rust binary renamed the harness exits 2",
+    "`node parity/diff/run.mjs --cases 0` exit 2 (empty corpus)",
+    "`node parity/diff/run.mjs --cases 5000` exit 0"
    ],
-   "note": "A missing Rust binary and an empty corpus both exit 2; the oracle missing is checked by the same precondition."
+   "note": ""
   },
   {
    "id": "DSP-001",
    "family": "DSP",
    "title": "Preserve all 16 C# DSP builtins and their signatures.",
    "sourceLine": 293,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "rust/lovelace-lang/src/registry.rs: exactly 16 descriptors carry plugin `Lovelace.Dsp`",
+    "parity/manifest.toml: 160/160 Lovelace.Dsp.Tests cases ported",
+    "`lovelace-lang::round67_modus::dsp_plugin_loaded_through_modus_seam_registers_dsp_builtins`"
+   ],
    "note": ""
   },
   {
@@ -815,23 +1011,33 @@
    "family": "DSP",
    "title": "Match convolution, DFT, FFT, filtering, and moving average.",
    "sourceLine": 294,
-   "status": "partial",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
    "evidence": [
-    "EVD-025"
+    "`lovelace-lang::dsp_round21::convolve_given_two_ones_produces_triangle`",
+    "`lovelace-lang::dsp_round21::fft_given_structured_n64_matches_dft`",
+    "`lovelace-lang::dsp_family_round61::filter_signal_matches_the_convolution_with_its_impulse_response`",
+    "`lovelace-lang::dsp_round21::movingaverage_given_step_returns_window_average`",
+    "`lovelace-lang::dsp_round21::dft_given_impulse_n4_returns_all_ones`"
    ],
-   "note": "DFT matches the oracle on the golden case; convolution/FFT/filter/moving-average differential coverage is not established."
+   "note": ""
   },
   {
    "id": "DSP-003",
    "family": "DSP",
    "title": "Match signal constructors, including impulse, step, cosine, exponential, power series, and noise.",
    "sourceLine": 295,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::dsp_round20::impulse_given_lengths_one_and_four_are_unit_impulses`",
+    "`lovelace-lang::dsp_round20::step_given_lengths_zero_one_and_four_are_unit_steps`",
+    "`lovelace-lang::dsp_round21::cosine_given_n0_is_exactly_one`",
+    "`lovelace-lang::dsp_round20::powerseries_given_documented_input_matches_the_oracle`",
+    "`lovelace-lang::dsp_round20::noise_given_explicit_seeds_is_reproducible_and_seed_sensitive`"
+   ],
    "note": ""
   },
   {
@@ -839,10 +1045,14 @@
    "family": "DSP",
    "title": "Match delay, scale, and complex component operations.",
    "sourceLine": 296,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::dsp_round20::delay_given_positive_zero_and_negative_offsets_shift_causally`",
+    "`lovelace-lang::dsp_round21::scalar_given_step_and_k_scales`",
+    "`lovelace-lang::complex_round24::re_im_and_conj_map_a_complex_signal_like_the_oracle`"
+   ],
    "note": ""
   },
   {
@@ -850,10 +1060,14 @@
    "family": "DSP",
    "title": "Preserve argument coercion and argument-position error reporting.",
    "sourceLine": 297,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::dsp_round20::impulse_given_fractional_count_reports_the_exact_integer_contract`",
+    "`lovelace-lang::dsp_round20::noise_given_out_of_range_seed_reports_the_int32_bound`",
+    "`lovelace-run::dsp_round21::delay_given_out_of_range_k_throws_actionable_error`"
+   ],
    "note": ""
   },
   {
@@ -861,10 +1075,14 @@
    "family": "DSP",
    "title": "Match precision-dependent optimized paths and arbitrary-precision fallbacks.",
    "sourceLine": 298,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::fixed_dsp_tests::convolve64_given_nineteen_digits_keeps_the_width_and_promotes_at_twenty`",
+    "`lovelace-lang::fixed_dsp_tests::convolve128_given_wide_operands_throws_promote_exception`",
+    "`lovelace-lang::complex_round24::limited_precision_takes_the_fixed_path_and_stays_exact`"
+   ],
    "note": ""
   },
   {
@@ -872,10 +1090,14 @@
    "family": "DSP",
    "title": "Preserve deterministic seeded noise generation.",
    "sourceLine": 299,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::dsp_round20::noise_given_seed_zero_is_the_documented_deterministic_sequence`",
+    "`lovelace-lang::dsp_round20::noise_given_explicit_seeds_is_reproducible_and_seed_sensitive`",
+    "`lovelace-run::dsp_round21::noise_given_default_seed_is_reproducible`"
+   ],
    "note": ""
   },
   {
@@ -883,33 +1105,43 @@
    "family": "DSP",
    "title": "Preserve cancellation during long operations.",
    "sourceLine": 300,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::kernel_cancel_round9::a_live_flag_set_from_another_thread_stops_one_long_kernel`",
+    "`lovelace-lang::cancellation_round18` (generic long-operation cancellation)"
+   ],
+   "note": "Cancellation is implemented and tested for generic long kernels; no DSP-specific test (fft/conv/filter) exercises cancellation."
   },
   {
    "id": "DSP-009",
    "family": "DSP",
    "title": "Run the original DSP test suite and differential signal-processing benchmarks.",
    "sourceLine": 301,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "parity/manifest.toml: 160/160 Lovelace.Dsp.Tests cases ported (gate-manifest exit 0)",
+    "dspbench/ exists (C# fixed-width DSP benchmarks) with dspbench-report.md"
+   ],
+   "note": "The original DSP test suite is ported; no Rust-vs-C# differential signal-processing benchmark exists (dspbench measures the C# implementation only)."
   },
   {
    "id": "DSP-010",
    "family": "DSP",
    "title": "Resolve the documented ambiguity in noise overloads explicitly, without silently changing the frozen C# behavior.",
    "sourceLine": 302,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-parity-contract/round-20/dsp-builtins.md: noise arity/seed contract (3 or 4 args, Int32 seed, short/long forms equal)",
+    "`lovelace-lang::dsp_round20::noise_given_two_arguments_publishes_the_declared_arity_signature`",
+    "`lovelace-lang::dsp_round20::noise_given_the_short_and_long_default_seed_forms_agree`"
+   ],
+   "note": "The ambiguity is resolved explicitly in the round-20 report without changing the frozen C# behaviour."
   },
   {
    "id": "ECO-001",
@@ -920,9 +1152,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-010"
+    "`node parity/tools/gate-projects.mjs` exit 0: 19/19 projects dispositioned",
+    "`node parity/tools/gate-manifest.mjs` exit 0: 6090/6209 cases map to a Rust test, 119 user-approved exclusions"
    ],
-   "note": "Every project has a disposition and a Rust path or a reason; test-level linkage is 0%."
+   "note": "Every project row has a disposition and 98.08% of test cases have a Rust test; six projects are absent, so not every row resolves to a Rust module."
   },
   {
    "id": "ECO-002",
@@ -933,9 +1166,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-010"
+    "`node parity/tools/gate-projects.mjs` exit 0: 4 port, 1 consolidated, 8 partial, 6 absent",
+    "`node parity/tools/gate-manifest.mjs` exit 0"
    ],
-   "note": "Six projects are explicitly absent and eight partial; presence of all required subsystems is therefore disproved, not proven."
+   "note": "A parity run does prove presence/absence, and six required subsystems (Abstractions, Statistics, Console, Knowledge, Knowledge.Run, Proofs) are absent, so complete presence is disproved, not proven."
   },
   {
    "id": "ECO-003",
@@ -946,7 +1180,7 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "Only test methods are enumerated (census). No inventory of externally visible C# types and methods exists."
   },
   {
    "id": "ECO-004",
@@ -957,29 +1191,37 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No inventory of external consumers (scripts, applications, plugins, automation, agent harnesses) exists."
   },
   {
    "id": "ECO-005",
    "family": "ECO",
    "title": "Preserve the semantics of public operations, including defaults, error conditions, and value conversions.",
    "sourceLine": 153,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`node parity/tools/gate-fixtures.mjs` exit 0 (20/20)",
+    "`node parity/tools/gate-cli.mjs` exit 0 (16/16)",
+    "`cargo run --release -p lovelace-corpus` exit 0 (214/214)"
+   ],
+   "note": "Public-boundary semantics are compared broadly, but with no public C# API inventory (ECO-003) 'all public operations' is not covered."
   },
   {
    "id": "ECO-006",
    "family": "ECO",
    "title": "Provide equivalent Rust extension points for the C# abstractions that are intended to survive migration.",
    "sourceLine": 154,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "rust/lovelace-lang/src/modus.rs: ModusPlugin/ModusHost seam with register_builtin, register_kernel and descriptor registration",
+    "`lovelace-lang::round67_modus::plugin_load_registers_kernel_and_dispatch_runs`",
+    "`lovelace-lang::round67_modus::dsp_plugin_loaded_through_modus_seam_registers_dsp_builtins`"
+   ],
+   "note": "The plugin contracts and extension points that survive migration exist and are exercised (builtin, kernel, scalar-result, enum/record payloads)."
   },
   {
    "id": "ECO-007",
@@ -990,7 +1232,7 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [],
-   "note": "No decision recorded on .NET consumer compatibility (C ABI, FFI bridge or wrapper)."
+   "note": "No decision is recorded on .NET consumer compatibility (C ABI, FFI bridge or C# wrapper)."
   },
   {
    "id": "ECO-008",
@@ -1001,30 +1243,36 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [],
-   "note": "No inventory of persisted formats (Studio sessions/settings, knowledge graphs, plots) and no migration path."
+   "note": "No inventory of persisted C# formats (Studio sessions/settings, knowledge graphs, plots) and no migration path for them."
   },
   {
    "id": "ENG-001",
    "family": "ENG",
    "title": "Preserve every published value kind and its widening rules.",
    "sourceLine": 231,
-   "status": "partial",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`lovelace-lang::value_widen` (9 tests)",
+    "`node parity/tools/gate-fixtures.mjs` exit 0: value-kind projections in 20 fixtures"
    ],
-   "note": "Value kinds and widening match across the fixtures; Text comparison still diverges (OBS-013)."
+   "note": ""
   },
   {
    "id": "ENG-002",
    "family": "ENG",
    "title": "Match variables, assignments, scopes, closures, recursion, and function calls.",
    "sourceLine": 232,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::suite_engine_batch::evaluate_given_assignment_exposes_variable_in_variables_dictionary`",
+    "`lovelace-lang::round95_engine_singletons::statementtests_block_assignment_does_not_leak`",
+    "`lovelace-lang::round19_batch::suite_recursion_ordinary_recursion_keeps_working`",
+    "`lovelace-lang::round76_capture_events::capture_state_records_variables_and_user_functions`"
+   ],
    "note": ""
   },
   {
@@ -1032,10 +1280,13 @@
    "family": "ENG",
    "title": "Preserve the _ last-result variable.",
    "sourceLine": 233,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::suite_engine_batch::evaluate_given_result_stores_in_underscore_variable`",
+    "`lovelace-desktop::workbench::tests::the_real_snapshot_publishes_underscore_and_the_registry_count_for_the_tables`"
+   ],
    "note": ""
   },
   {
@@ -1043,10 +1294,14 @@
    "family": "ENG",
    "title": "Match loops, control flow, and statement evaluation order.",
    "sourceLine": 234,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::suite_parity_batch::statementtests_evaluate_givenwhileloop_accumulatescount`",
+    "`lovelace-lang::cancellation_round18::while_loop_cancels_between_iterations`",
+    "`lovelace-lang::round90_runner_families::parse_given_chained_assignment_right_associative`"
+   ],
    "note": ""
   },
   {
@@ -1054,13 +1309,15 @@
    "family": "ENG",
    "title": "Preserve per-engine precision and plugin state isolation.",
    "sourceLine": 235,
-   "status": "partial",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-025"
+    "`lovelace-lang::context_round56::two_concurrent_scopes_are_isolated`",
+    "`lovelace-lang::context_round56::a_scope_is_invisible_to_another_thread`",
+    "`lovelace-real::round39_real_tests::pi_given_concurrent_tasks_with_different_local_precisions_precision_does_not_leak_across_tasks`"
    ],
-   "note": "Engine precision now follows the plugin budget (30) as the reference does; per-engine isolation across concurrent engines is untested."
+   "note": ""
   },
   {
    "id": "ENG-006",
@@ -1071,19 +1328,24 @@
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-027"
+    "`lovelace-run::wire_batch::committed_parse_error_commits_nothing`",
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-010 cancellation row"
    ],
-   "note": "A failed or cancelled run publishes a different committed variable set than the oracle (OQ-013)."
+   "note": "Revision publication is implemented, but a failed or cancelled run still publishes a different committed variable set than the oracle (OQ-013)."
   },
   {
    "id": "ENG-007",
    "family": "ENG",
    "title": "Preserve partial execution, failure, and cancellation behavior.",
    "sourceLine": 237,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::cancellation_round18::a_cancelled_run_keeps_the_partial_state_it_committed`",
+    "`lovelace-run::cancellation_batch::the_cancelled_path_keeps_partial_output_and_carries_the_documented_output`",
+    "`lovelace-lang::round19_batch::suite_engine_error_records_diagnostic_with_position`"
+   ],
    "note": ""
   },
   {
@@ -1091,13 +1353,16 @@
    "family": "ENG",
    "title": "Match recursion, allocation, rendering, and evaluation budgets.",
    "sourceLine": 238,
-   "status": "partial",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-034"
+    "`lovelace-lang::round19_batch::suite_recursion_at_the_deepest_accepted_depth_answers`",
+    "`lovelace-run::the_documented_deepest_recursion_is_accepted`",
+    "`lovelace-lang::round19_batch::suite_value_depth_a_value_far_past_the_budget_is_refused`",
+    "`lovelace-lang::panic_sweep_round22::array_shapes_over_the_allocation_budget_are_refused_before_the_allocator`"
    ],
-   "note": "The documented deepest accepted recursion f(85) overflows the Rust runner stack (exit -1073741571); all 39 Recursion cases stay deferred."
+   "note": "The f(85) stack overflow (OBS-027) is fixed; recursion, value/display depth and allocation budgets have boundary tests."
   },
   {
    "id": "ENG-009",
@@ -1108,20 +1373,24 @@
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: per-statement status/timing shape"
    ],
-   "note": "Per-statement status and timing entries are published with the same shape."
+   "note": ""
   },
   {
    "id": "ENG-010",
    "family": "ENG",
    "title": "Produce deterministic output across repeated runs and different thread counts.",
    "sourceLine": 240,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::round19_batch::suite_plot_fixed_model_produces_deterministic_output`",
+    "`lovelace-lang::falsification_round46::tests::loop_api::loop_is_deterministic_across_processes`",
+    "`docs/goal-rust-perf/evidence.md` EVD-028/EVD-036 identical digests across worker budgets"
+   ],
+   "note": "Determinism is tested for specific paths and measured across worker budgets; no test runs the same script across different thread counts and compares the published envelope."
   },
   {
    "id": "ENG-011",
@@ -1132,154 +1401,192 @@
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: capabilities fixture",
+    "`lovelace-lang::round28_batch::capabilities_returns_a_record_named_capabilities_result`"
    ],
-   "note": "The capabilities fixture passes: the full builtin help/capability catalogue matches."
+   "note": ""
   },
   {
    "id": "ENG-012",
    "family": "ENG",
    "title": "Test all language behaviors through public engine entry points, not only internal helpers.",
    "sourceLine": 242,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-run` (430 tests drive the public CLI/engine path)",
+    "`node parity/tools/gate-fixtures.mjs` exit 0 (20/20)"
+   ],
+   "note": "The runner suite exercises public entry points, but the 1719-test language suite still includes direct internal-helper tests; there is no check that every language behavior is reachable through the public engine."
   },
   {
    "id": "GATE-001",
    "family": "GATE",
    "title": "Change a decimal period boundary.",
    "sourceLine": 449,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1 -Only GATE-001` exit 0: 1/1 detected, 1 reverted tree passes; detail `cargo-test:the_reference_truncates_a_period_that_closes_exactly_at_the_cap exit 101`",
+    "`cargo test --workspace the_reference_truncates_a_period_that_closes_exactly_at_the_cap` exit 0 on the clean tree"
+   ],
+   "note": "The period-boundary mutation is detected and reverted. The single 12-mutation run reported this row NOT VALIDATED because its precondition ran red while a concurrent desktop session was writing rust/lovelace-desktop; the isolated rerun is the adjudicating evidence."
   },
   {
    "id": "GATE-002",
    "family": "GATE",
    "title": "Change a numeric widening rule.",
    "sourceLine": 450,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1` run 2026-11-12: mutation `GATE-002` (Change a numeric widening rule) detected=True and restored=True; detail `corpus:lang/020 exit 1`",
+    "parity/mutations.json: the mutation anchor occurs exactly once; the expected gate is the one that reported non-zero"
+   ],
+   "note": "The injected fault is detected by the gate that must catch it, and the reverted tree passes again. The full script exited 1 only because three unrelated preconditions (GATE-001/010/011) were contaminated by a concurrent desktop writer; this row itself was detected and restored."
   },
   {
    "id": "GATE-003",
    "family": "GATE",
    "title": "Break a Unicode source position.",
    "sourceLine": 451,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1` run 2026-11-12: mutation `GATE-003` (Break a Unicode source position) detected=True and restored=True; detail `fixtures:error_envelope exit 1`",
+    "parity/mutations.json: the mutation anchor occurs exactly once; the expected gate is the one that reported non-zero"
+   ],
+   "note": "The injected fault is detected by the gate that must catch it, and the reverted tree passes again. The full script exited 1 only because three unrelated preconditions (GATE-001/010/011) were contaminated by a concurrent desktop writer; this row itself was detected and restored."
   },
   {
    "id": "GATE-004",
    "family": "GATE",
    "title": "Remove an envelope field.",
    "sourceLine": 452,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1` run 2026-11-12: mutation `GATE-004` (Remove an envelope field) detected=True and restored=True; detail `fixtures:symbolic exit 1`",
+    "parity/mutations.json: the mutation anchor occurs exactly once; the expected gate is the one that reported non-zero"
+   ],
+   "note": "The injected fault is detected by the gate that must catch it, and the reverted tree passes again. The full script exited 1 only because three unrelated preconditions (GATE-001/010/011) were contaminated by a concurrent desktop writer; this row itself was detected and restored."
   },
   {
    "id": "GATE-005",
    "family": "GATE",
    "title": "Alter a diagnostic code.",
    "sourceLine": 453,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1` run 2026-11-12: mutation `GATE-005` (Alter a diagnostic code) detected=True and restored=True; detail `fixtures:error_envelope exit 1`",
+    "parity/mutations.json: the mutation anchor occurs exactly once; the expected gate is the one that reported non-zero"
+   ],
+   "note": "The injected fault is detected by the gate that must catch it, and the reverted tree passes again. The full script exited 1 only because three unrelated preconditions (GATE-001/010/011) were contaminated by a concurrent desktop writer; this row itself was detected and restored."
   },
   {
    "id": "GATE-006",
    "family": "GATE",
    "title": "Change symbolic canonical ordering.",
    "sourceLine": 454,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1` run 2026-11-12: mutation `GATE-006` (Change symbolic canonical ordering) detected=True and restored=True; detail `fixtures:symbolic exit 1`",
+    "parity/mutations.json: the mutation anchor occurs exactly once; the expected gate is the one that reported non-zero"
+   ],
+   "note": "The injected fault is detected by the gate that must catch it, and the reverted tree passes again. The full script exited 1 only because three unrelated preconditions (GATE-001/010/011) were contaminated by a concurrent desktop writer; this row itself was detected and restored."
   },
   {
    "id": "GATE-007",
    "family": "GATE",
    "title": "Break final-digit rounding.",
    "sourceLine": 455,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1` run 2026-11-12: mutation `GATE-007` (Break final-digit rounding) detected=True and restored=True; detail `corpus:sym/080 exit 1`",
+    "parity/mutations.json: the mutation anchor occurs exactly once; the expected gate is the one that reported non-zero"
+   ],
+   "note": "The injected fault is detected by the gate that must catch it, and the reverted tree passes again. The full script exited 1 only because three unrelated preconditions (GATE-001/010/011) were contaminated by a concurrent desktop writer; this row itself was detected and restored."
   },
   {
    "id": "GATE-008",
    "family": "GATE",
    "title": "Duplicate captured print() output.",
    "sourceLine": 456,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1` run 2026-11-12: mutation `GATE-008` (Duplicate captured print() output) detected=True and restored=True; detail `fixtures:print_purity exit 1`",
+    "parity/mutations.json: the mutation anchor occurs exactly once; the expected gate is the one that reported non-zero"
+   ],
+   "note": "The injected fault is detected by the gate that must catch it, and the reverted tree passes again. The full script exited 1 only because three unrelated preconditions (GATE-001/010/011) were contaminated by a concurrent desktop writer; this row itself was detected and restored."
   },
   {
    "id": "GATE-009",
    "family": "GATE",
    "title": "Remove builtin registry metadata.",
    "sourceLine": 457,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1` run 2026-11-12: mutation `GATE-009` (Remove builtin registry metadata) detected=True and restored=True; detail `cli:RUN-008 exit 1`",
+    "parity/mutations.json: the mutation anchor occurs exactly once; the expected gate is the one that reported non-zero"
+   ],
+   "note": "The injected fault is detected by the gate that must catch it, and the reverted tree passes again. The full script exited 1 only because three unrelated preconditions (GATE-001/010/011) were contaminated by a concurrent desktop writer; this row itself was detected and restored."
   },
   {
    "id": "GATE-010",
    "family": "GATE",
    "title": "Disable a precision cap.",
    "sourceLine": 458,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1 -Only GATE-010` exit 0: 1/1 detected, 1 reverted tree passes; detail `cargo-test:the_smallest_over_cap_request_is_marked_too exit 101`"
+   ],
+   "note": "The precision-cap mutation is detected and reverted. As with GATE-001, the single 12-mutation run's NOT VALIDATED was a transient precondition failure under concurrent writes; the isolated rerun passed."
   },
   {
    "id": "GATE-011",
    "family": "GATE",
    "title": "Delete a supposedly ported test.",
    "sourceLine": 459,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/mutate.ps1` reported `NOT VALIDATED: manifest was already red before the mutation`",
+    "`node parity/tools/gate-manifest.mjs` currently exits 1: `rust-tests.json is stale: the Rust sources changed since the inventory was measured`",
+    "parity/mutations.json GATE-011 deletes a claimed Rust test and expects `manifest exit 1`"
+   ],
+   "note": "The mutation exists and gate-manifest is designed to catch a deleted/renamed claimed test, but it could not be validated today: a concurrent desktop session modified rust/lovelace-desktop, making the measured inventory stale, so the manifest gate is red before the mutation and fails closed. Re-run after parity/gen-rust-tests.ps1 on a quiet tree."
   },
   {
    "id": "GATE-012",
    "family": "GATE",
    "title": "Run the gate with an empty or incomplete corpus.",
    "sourceLine": 460,
-   "status": "partial",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-015"
+    "`powershell -File parity/mutate.ps1` run 2026-11-12: mutation `GATE-012` (Run the gate with an empty or incomplete corpus) detected=True and restored=True; detail `diff-empty exit 2`",
+    "parity/mutations.json: the mutation anchor occurs exactly once; the expected gate is the one that reported non-zero"
    ],
-   "note": "The empty-corpus case exits 2; the mutation harness that proves it is not yet run."
+   "note": "The injected fault is detected by the gate that must catch it, and the reverted tree passes again. The full script exited 1 only because three unrelated preconditions (GATE-001/010/011) were contaminated by a concurrent desktop writer; this row itself was detected and restored."
   },
   {
    "id": "HARNESS-001",
@@ -1290,20 +1597,25 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-009"
+    "docs/parity/contract-v2.md is the frozen source of truth for 262 IDs",
+    "`node parity/tools/gate-requirements.mjs` exit 0 fails closed on a dropped ID",
+    "docs/goal-parity-contract/intent-audit.md"
    ],
-   "note": "The contract document plus the 262-row ledger make a dropped requirement a gate failure."
+   "note": ""
   },
   {
    "id": "HARNESS-002",
    "family": "HARNESS",
    "title": "Coverage-driven planning: select work from unsatisfied parity requirements.",
    "sourceLine": 499,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-parity-contract/journal.md and state.md show rounds selecting work from the unmet ledger rows",
+    "parity/requirements.json carries owner/phase for every row"
+   ],
+   "note": "Work is visibly driven by ledger gaps, but the selection is manual; no tool derives the next batch from the ledger."
   },
   {
    "id": "HARNESS-003",
@@ -1314,10 +1626,11 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-006",
-    "EVD-007"
+    "docs/goal-parity-contract/intent-audit.md",
+    "`powershell -File parity/mutate.ps1` (gate falsification)",
+    "`node parity/tools/gate-manifest.mjs` exits 0 and resolves every claimed test"
    ],
-   "note": "The intent audit is independent, and every agent claim was re-run; not every claim was re-derived."
+   "note": "Independent falsification exists and several claims were re-run; not every significant claim is re-derived by a second party."
   },
   {
    "id": "HARNESS-004",
@@ -1328,9 +1641,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-009"
+    "docs/goal-parity-contract/evidence.md (EVD-001..039, each with a command and observation)",
+    "docs/goal-parity-contract/journal.md OBS/OQ/DEC records with file:line or command"
    ],
-   "note": "Every journal claim carries a file:line or a command plus its observed output."
+   "note": ""
   },
   {
    "id": "HARNESS-005",
@@ -1341,9 +1655,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-008"
+    "parity/scorecard.json reports gate PASS separately from the 262-row ledger",
+    "docs/goal-parity-contract/final-acceptance.md explicitly separates the scorecard verdict from migration completeness"
    ],
-   "note": "The scorecard reports coverage and gate state separately from progress claims."
+   "note": "Progress and completion are reported separately; the ledger still has no automated progress metric beyond raw counts."
   },
   {
    "id": "HARNESS-006",
@@ -1354,9 +1669,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-009"
+    "docs/goal-parity-contract/journal.md keeps OQ/RISK entries across rounds",
+    "parity/requirements.json keeps unmet/partial rows with notes"
    ],
-   "note": "Unresolved differences and unverified paths live as OQ/RISK rows in the journal and as unmet/partial ledger rows."
+   "note": ""
   },
   {
    "id": "HARNESS-007",
@@ -1367,20 +1683,24 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-006",
-    "EVD-007"
+    "docs/goal-parity-contract/evidence.md CAP-003 records an absent SymPy as a capability, not a pass",
+    "parity/scorecard.json records SKIPPED separately from PASS",
+    "docs/goal-desktop-v4/state.md reports the readiness gate FAIL rather than claiming release"
    ],
-   "note": "Unavailable checks (C# testhost, doctests temp) are recorded as capabilities, not passes."
+   "note": "Unavailable checks are recorded honestly; the desktop state still carries 123 NOT_TESTED rows, so the reporting discipline is exercised rather than complete."
   },
   {
    "id": "HARNESS-008",
    "family": "HARNESS",
    "title": "Controlled scope changes: changes to a public contract or exclusion policy require user approval.",
    "sourceLine": 505,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "docs/goal-parity-contract/journal.md DEC-001 (cycle scope) and DEC-003 (user-delegated exclusions)",
+    "parity/manifest.toml exclusions all carry owner=user"
+   ],
    "note": ""
   },
   {
@@ -1388,46 +1708,57 @@
    "family": "HARNESS",
    "title": "Reproducible benchmarking.",
    "sourceLine": 506,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "rust/lovelace-bench (fixed seed inputs, mean/median, DIGEST line)",
+    "docs/goal-rust-perf/evidence.md records commands and numbers"
+   ],
+   "note": "A reproducible benchmark harness and recorded results exist; there is no automated rerun that fails when numbers or hardware metadata are missing."
   },
   {
    "id": "HARNESS-010",
    "family": "HARNESS",
    "title": "Final release auditor: a dedicated final gate evaluates the entire migration from the frozen source of truth.",
    "sourceLine": 507,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/run-all.ps1` regenerates parity/scorecard.json from live gates and exits non-zero on any FAILED",
+    "parity/scorecard.json: 9/9 PASS (D1,D2,D3,D4,D5,D6,D7,D9,D10)"
+   ],
+   "note": "A dedicated fail-closed release auditor exists and runs the whole gate set; it reports gate status, not that every ledger row is met."
   },
   {
    "id": "HARNESS-011",
    "family": "HARNESS",
    "title": "Work preservation: each completed phase produces a reviewable commit or PR, test evidence, and an updated manifest.",
    "sourceLine": 508,
-   "status": "partial",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-009"
+    "git log: 61919a7 'Parity round 101: mutation anchors re-anchored...' and 112041b 'Final acceptance...'",
+    "parity/manifest.toml and parity/rust-tests.json are checked in; `cargo test --workspace` exit 0"
    ],
-   "note": "Work products are on disk and reviewable; no commit has been made yet."
+   "note": ""
   },
   {
    "id": "HARNESS-012",
    "family": "HARNESS",
    "title": "No circular verification: a generated implementation and its generated tests cannot be the only two sources supporting a parity claim.",
    "sourceLine": 509,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "the C# oracle, 20 golden fixtures, the 5000-case differential and the SymPy oracle are independent of the Rust implementation",
+    "`node parity/tools/gate-fixtures.mjs` and `node parity/diff/run.mjs --cases 5000` exit 0",
+    "`docs/goal-parity-contract/journal.md` VAL-004: weak mappings were found by an independent probe and repaired"
+   ],
+   "note": "Parity claims are supported by an independent implementation/oracle, not only by generated Rust tests."
   },
   {
    "id": "KNOW-001",
@@ -1438,7 +1769,7 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the observation-driven sampling pipeline is not implemented."
   },
   {
    "id": "KNOW-002",
@@ -1449,7 +1780,7 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the deterministic seeded generation is not implemented."
   },
   {
    "id": "KNOW-003",
@@ -1460,7 +1791,7 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the observation canonicalization and behavioral-plane classification is not implemented."
   },
   {
    "id": "KNOW-004",
@@ -1471,7 +1802,7 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the reduction, convergence, boundaries and frontiers is not implemented."
   },
   {
    "id": "KNOW-005",
@@ -1482,7 +1813,7 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the graph persistence formats is not implemented."
   },
   {
    "id": "KNOW-006",
@@ -1493,7 +1824,7 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the config/sample/reduce/converge/query/help commands is not implemented."
   },
   {
    "id": "KNOW-007",
@@ -1504,7 +1835,7 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the JSON-over-stdio command protocol and exit codes is not implemented."
   },
   {
    "id": "KNOW-008",
@@ -1515,7 +1846,7 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the reproducing the seeded C# graph (seed 20240617) is not implemented."
   },
   {
    "id": "KNOW-009",
@@ -1526,7 +1857,7 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the verifying a Rust knowledge tool against the real runner is not implemented."
   },
   {
    "id": "KNOW-010",
@@ -1537,41 +1868,50 @@
    "owner": "phase-5",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the comparing graph outputs and convergence metrics with frozen C# is not implemented."
   },
   {
    "id": "LANG-001",
    "family": "LANG",
    "title": "Match the complete token set, including Unicode edge cases.",
    "sourceLine": 221,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::round46_token_kind` (51 tests enumerate every token variant and ordinal)",
+    "`lovelace-lang::unicode::tests::named_constants_and_relations_use_the_unicode_glyphs`"
+   ],
+   "note": "The complete token set is enumerated and exercised; Unicode *edge cases in the lexer* (non-ASCII identifiers/literals) have no dedicated test, only output-glyph tests."
   },
   {
    "id": "LANG-002",
    "family": "LANG",
    "title": "Match operator precedence and associativity.",
    "sourceLine": 222,
-   "status": "partial",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-035"
+    "`lovelace-lang::suite_parity_batch::signprecedencetests_evaluate_signandpower_minustwosquared`",
+    "`lovelace-lang::suite_parity_batch::signprecedencetests_parse_negatedpower_signwrapsthepower`",
+    "`lovelace-lang::suite_lex_parse_batch::parse_given_power_right_associative_correct_tree`"
    ],
-   "note": "Unary minus binds tighter than ^ in Rust: -2^2 is 4 where the oracle gives -4. OQ-016."
+   "note": "The unary-minus/power defect (OBS-027) is fixed: both runners now give -4 for -2^2 (EVD-036)."
   },
   {
    "id": "LANG-003",
    "family": "LANG",
    "title": "Match literal syntax, string interpolation, ranges, indexing, and slicing.",
    "sourceLine": 223,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::suite_parity_batch::interpolationprinttests_evaluate_giveninterpolatedstring_formats`",
+    "`lovelace-lang::suite_surface_round14::ranges_are_inclusive_and_default_to_a_positive_step`",
+    "`lovelace-lang::suite_parity_batch::slicetests_vectorslice_startstop`"
+   ],
    "note": ""
   },
   {
@@ -1579,21 +1919,28 @@
    "family": "LANG",
    "title": "Match whitespace, newline, comment, and escape handling.",
    "sourceLine": 224,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::round46_token_kind::tokenize_given_whitespace_skips_whitespace_preserves_positions`",
+    "`lovelace-lang::round46_token_kind::tokenize_given_newline_skips_it_as_whitespace`",
+    "`lovelace-lang::round42_differential_classes::round42_hash_comment_is_a_parse_error_at_the_hash`"
+   ],
+   "note": "Whitespace, newline and comment handling are tested; string escape handling (lib.rs::unescape) has no dedicated test, so the 'escape handling' clause is not evidenced."
   },
   {
    "id": "LANG-005",
    "family": "LANG",
    "title": "Preserve source positions in UTF-16 code units.",
    "sourceLine": 225,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-run::script_source` (15 tests, incl. UTF-16 line/column)",
+    "`node parity/tools/gate-fixtures.mjs` exit 0: error_envelope UTF-16 position"
+   ],
    "note": ""
   },
   {
@@ -1601,10 +1948,13 @@
    "family": "LANG",
    "title": "Preserve parse errors, including codes, messages, and locations.",
    "sourceLine": 226,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-run::error_taxonomy_batch` (24 tests: parse-error codes, categories, messages and positions)",
+    "`lovelace-run::round19_run_batch::run_parse_failure_in_a_single_line_script_crosses_as_parse_error`"
+   ],
    "note": ""
   },
   {
@@ -1612,10 +1962,14 @@
    "family": "LANG",
    "title": "Reject excessive AST/input depth in the same manner as the reference.",
    "sourceLine": 227,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::round19_batch::suite_depth_nesting_one_past_the_budget_is_refused_with_the_typed_depth_error`",
+    "`lovelace-lang::round19_batch::suite_recursion_one_level_past_the_deepest_accepted_depth_is_refused`",
+    "`lovelace-run::error_taxonomy_batch::a_deep_parse_is_a_depth_budget_refusal_not_a_domain_error`"
+   ],
    "note": ""
   },
   {
@@ -1623,10 +1977,14 @@
    "family": "MIR",
    "title": "Support the complete versioned MathIR node set and text format.",
    "sourceLine": 280,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "rust/lovelace-lang/src/mathir.rs: versioned `#!mathir 2` text format, IrOpKind node set, param/const pools",
+    "`lovelace-lang::mathir_round54::compilation_result_ir_text_round_trips`",
+    "`lovelace-lang::mathir_round54::deserialize_gates_the_format_version`"
+   ],
    "note": ""
   },
   {
@@ -1634,10 +1992,14 @@
    "family": "MIR",
    "title": "Match lowering, optimization, type inference, and validation.",
    "sourceLine": 281,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::mathir_round54::lowering_refuses_what_the_reference_refuses`",
+    "`lovelace-lang::mathir_typing_round55::infer_types_for_lowered_expressions`",
+    "`lovelace-lang::mathir_typing_round55::validate_accepts_lowered_corpus`"
+   ],
    "note": ""
   },
   {
@@ -1645,10 +2007,14 @@
    "family": "MIR",
    "title": "Preserve common-subexpression handling and emitted ordering where published.",
    "sourceLine": 282,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "rust/lovelace-lang/src/mathir.rs (structural CSE: 'subexpressions share their node')",
+    "`lovelace-lang::mathir_round54::compilation_result_ir_text_round_trips`",
+    "`lovelace-lang::symbolics_tail_round34::acceptance_optimize_lower_evaluate_round_trip`"
+   ],
    "note": ""
   },
   {
@@ -1656,10 +2022,15 @@
    "family": "MIR",
    "title": "Match lower, compile, compile_full, evalir, and evalir_batch.",
    "sourceLine": 283,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::mathir_round54::kernel_named_and_positional_evaluate`",
+    "`lovelace-lang::round84_evalir_multi::evalir_multi_parameter_binds_values_in_declaration_order`",
+    "`lovelace-lang::round27_batch::evalir_batch_carries_the_same_digit_contract`",
+    "`lovelace-lang::suite_parity_batch::descriptor_example_026_compile_full`"
+   ],
    "note": ""
   },
   {
@@ -1667,21 +2038,29 @@
    "family": "MIR",
    "title": "Preserve precision and cancellation behavior during evaluation.",
    "sourceLine": 284,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::round27_batch::evalir_honours_the_digit_count_it_was_given`",
+    "`lovelace-lang::mathir_round54::kernel_exact_tiers_preserved`",
+    "`lovelace-lang::mathir_round54::kernel_transcendental_approximate_tier`"
+   ],
+   "note": "Precision is honoured and exactness tiers are preserved, but no test cancels a long MathIR evaluation, so the cancellation clause is unverified."
   },
   {
    "id": "MIR-006",
    "family": "MIR",
    "title": "Verify direct execution against lowered-then-executed results.",
    "sourceLine": 285,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::round97_tail::propertytests_mathirevaluateslikesymbolic`",
+    "`lovelace-corpus::property_assertions::mathir_evaluates_like_symbolic`",
+    "`lovelace-lang::round38_remaining::evalir_lowers_optimizes_and_evaluates_a_five_term_polynomial`"
+   ],
    "note": ""
   },
   {
@@ -1689,10 +2068,14 @@
    "family": "MIR",
    "title": "Reject malformed or unsupported IR identically.",
    "sourceLine": 286,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::mathir_typing_round55::deserialize_rejects_malformed_program`",
+    "`lovelace-lang::mathir_typing_round55::validate_rejects_wrong_arity`",
+    "`lovelace-lang::round39_residue::mathir_old_version_is_rejected_with_the_reference_message`"
+   ],
    "note": ""
   },
   {
@@ -1700,21 +2083,29 @@
    "family": "MIR",
    "title": "Add direct MathIR tests, addressing the original C# test-coverage gap.",
    "sourceLine": 287,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::mathir_round54` (13 tests)",
+    "`lovelace-lang::mathir_typing_round55` (7 tests)",
+    "`lovelace-lang::round84_evalir_multi` (8 tests)"
+   ],
+   "note": "The original C# MathIR coverage gap is addressed by a dedicated Rust MathIR test module."
   },
   {
    "id": "NUM-001",
    "family": "NUM",
    "title": "All constructors and parsing forms match C# behavior.",
    "sourceLine": 162,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-nat::tests::from_decimal_GivenFiveRoundTripLiterals_ReturnsOriginal`",
+    "`lovelace-int::tests::from_decimal_GivenNegativeThirtyDigitLiteral_RoundTrips`",
+    "`lovelace-int::tests::from_i64_GivenMinimum_HandlesMagnitudeWithoutOverflow`"
+   ],
    "note": ""
   },
   {
@@ -1722,10 +2113,14 @@
    "family": "NUM",
    "title": "Canonical zero representation; no negative zero.",
    "sourceLine": 163,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-int::tests::from_decimal_GivenNegativeZero_NormalizesToPositiveZero`",
+    "`lovelace-int::tests::add_GivenOpposites_ReturnsNonNegativeZero`",
+    "`lovelace-int::tests::zero_GivenNoArguments_IsNonNegativeZero`"
+   ],
    "note": ""
   },
   {
@@ -1733,21 +2128,29 @@
    "family": "NUM",
    "title": "Exact addition, subtraction, multiplication, division, and remainder.",
    "sourceLine": 164,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": "Addition, subtraction and multiplication are exact; the pow and division conventions are not yet parity-complete (see NUM-004/NUM-005)."
+   "evidence": [
+    "`lovelace-nat::tests::add_GivenCarryChainAcrossThreeLimbs_Propagates`",
+    "`lovelace-nat::tests::mul_GivenHundredFiftyDigitPowersOfTen_ReturnsThreeHundredDigitResult`",
+    "`lovelace-int::tests::div_rem_signed_GivenTenOverThree_ReturnsThreeAndOne`"
+   ],
+   "note": ""
   },
   {
    "id": "NUM-004",
    "family": "NUM",
    "title": "Signed division uses the same quotient and remainder convention as C#.",
    "sourceLine": 165,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-int::tests::div_rem_signed_GivenNegativeTenOverThree_YieldsNegativeThreeAndMagnitudeOne`",
+    "`lovelace-int::tests::div_rem_signed_GivenNegativeDivisor_TruncatesTowardZero`",
+    "`lovelace-int::tests::div_rem_signed_GivenBothNegative_ReturnsPositiveQuotientAndNegativeRemainder`"
+   ],
    "note": ""
   },
   {
@@ -1755,21 +2158,29 @@
    "family": "NUM",
    "title": "Underflow, division by zero, invalid input, and overflow of bounded conversions produce equivalent failures.",
    "sourceLine": 166,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": "Violated: Integer.Pow(0) throws ArgumentOutOfRangeException in the oracle but returns 1 in Rust, and 0^3 throws in the oracle but returns 0 (OBS-010, OQ-009)."
+   "evidence": [
+    "`lovelace-nat::tests::div_rem_GivenZeroDivisor_ReturnsNone`",
+    "`lovelace-nat::tests::to_u64_GivenValueAboveMaximum_ReturnsNone`",
+    "`lovelace-int::tests::div_rem_GivenZeroDivisor_ReturnsNone`"
+   ],
+   "note": "Division-by-zero and bounded-conversion failures match. The integer power contract still diverges: rust/lovelace-int/src/lib.rs::pow returns 1 for exponent 0 (and 0 for 0^positive) while IntegerPowTests asserts the oracle throws (OBS-010/OQ-009)."
   },
   {
    "id": "NUM-006",
    "family": "NUM",
    "title": "Exact power, factorial, and decimal shifting.",
    "sourceLine": 167,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-nat::tests::pow_GivenTwoToHundred_ReturnsKnownValue`",
+    "`lovelace-nat::tests::factorial_GivenThousand_Has2568DigitsAndKnownChecksum`",
+    "`lovelace-nat::tests::mul_pow10_GivenZeroExponent_ReturnsSame`"
+   ],
    "note": ""
   },
   {
@@ -1777,10 +2188,14 @@
    "family": "NUM",
    "title": "Decimal parse/format round trips for arbitrarily large values.",
    "sourceLine": 168,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-nat::tests::parse_then_format_GivenLargeLiteral_RoundTrips`",
+    "`lovelace-nat::tests::to_decimal_GivenInteriorZeroLimb_PadsNineDigits`",
+    "`lovelace-nat::round39_natural_api::round_trip_given_random_large_values_parse_to_string_identity`"
+   ],
    "note": ""
   },
   {
@@ -1788,21 +2203,29 @@
    "family": "NUM",
    "title": "Identical results regardless of algorithm-selection threshold or worker count.",
    "sourceLine": 169,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-nat::tests::Mul_GivenRandomSizes_CrossesTheTransformAndKaratsubaPaths`",
+    "`lovelace-nat::ntt::tests::agrees_with_schoolbook_on_random_lengths_up_to_300_limbs`",
+    "docs/goal-rust-perf/evidence.md EVD-028: identical digit digests across worker budgets"
+   ],
+   "note": "Algorithm-selection paths are cross-checked; identical results across worker counts are measured in the perf evidence, not asserted by a test."
   },
   {
    "id": "NUM-009",
    "family": "NUM",
    "title": "Test every multiplication/division algorithm against an independent arithmetic oracle.",
    "sourceLine": 170,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-nat::ntt::tests::agrees_with_schoolbook_on_random_lengths_up_to_300_limbs`",
+    "`lovelace-nat::bz::tests::Div_GivenRandomSizes_AgreesWithLongDivision`",
+    "`lovelace-nat::tests::div_rem_GivenVariousInputs_MatchesCSharp`"
+   ],
    "note": ""
   },
   {
@@ -1810,21 +2233,27 @@
    "family": "NUM",
    "title": "Benchmark algorithm transitions, not merely steady-state performance.",
    "sourceLine": 171,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-rust-perf/evidence.md EVD-042: transform crossover measured at 20k/40k/80k/120k digits (NTT vs Karatsuba)",
+    "docs/goal-rust-perf/state.md D3-D7 transition measurements"
+   ],
+   "note": "Algorithm transitions are measured, not just steady state."
   },
   {
    "id": "PERF-001",
    "family": "PERF",
    "title": "Benchmark identical inputs and compare matching output digests.",
    "sourceLine": 468,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "docs/goal-rust-perf/evidence.md EVD-036/EVD-046: paired Rust-vs-C# runs on identical inputs with output digests",
+    "docs/goal-rust-perf/goal.md D9: byte-identical output across 1/2/4/8 threads"
+   ],
    "note": ""
   },
   {
@@ -1832,10 +2261,13 @@
    "family": "PERF",
    "title": "Use warmed executions and account for C# JIT effects.",
    "sourceLine": 469,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "docs/goal-rust-perf/state.md: 'Fair, warmed comparisons against the reference now exist for every metric'",
+    "docs/goal-rust-perf/evidence.md EVD-046 (warm JIT, real operand sizes, interleaved)"
+   ],
    "note": ""
   },
   {
@@ -1843,21 +2275,27 @@
    "family": "PERF",
    "title": "Report distributions rather than a single sample.",
    "sourceLine": 470,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "rust/lovelace-bench/src/main.rs prints `RESULT <op> <digits> <mean_ms> <median_ms>`",
+    "docs/goal-rust-perf/evidence.md EVD-029: repeated runs vary 25-30%"
+   ],
+   "note": "Mean and median are reported; no distribution (percentiles/min/max or per-iteration samples) is recorded."
   },
   {
    "id": "PERF-004",
    "family": "PERF",
    "title": "Benchmark both implementations on the same machine and software environment.",
    "sourceLine": 471,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "docs/goal-rust-perf/evidence.md EVD-036/EVD-046: Rust and C# harnesses interleaved on the same machine and session",
+    "docs/goal-rust-perf/goal.md amendment table"
+   ],
    "note": ""
   },
   {
@@ -1865,76 +2303,97 @@
    "family": "PERF",
    "title": "Measure arithmetic at small, medium, large, and algorithm-transition sizes.",
    "sourceLine": 472,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-rust-perf/evidence.md EVD-042: NTT/Karatsuba crossover at 20k/40k/80k/120k digits",
+    "docs/goal-rust-perf/state.md D3-D7 at 100k digits"
+   ],
+   "note": "Transition and large sizes are measured; the small/medium range is only used incidentally (the benchmark harness takes a size argument), with no recorded small/medium matrix."
   },
   {
    "id": "PERF-006",
    "family": "PERF",
    "title": "Include the original numeric, DSP, array, precision, and symbolic benchmark families.",
    "sourceLine": 473,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "rust/lovelace-bench measures mul/div/factorial/parse/tostring only",
+    "dspbench/ and symbench/ exist as C#-only harnesses"
+   ],
+   "note": "The numeric family is covered; DSP, array, precision and symbolic benchmark families have no Rust harness."
   },
   {
    "id": "PERF-007",
    "family": "PERF",
    "title": "Profile allocations, peak memory, startup time, and latency.",
    "sourceLine": 474,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-rust-perf/evidence.md EVD-017: profile_conv shows a 5263x2632 division costing 90 ms of a 262 ms conversion",
+    "rust/lovelace-bench measures latency"
+   ],
+   "note": "Latency and one CPU profile exist; allocations, peak memory, startup time and a systematic latency report are absent."
   },
   {
    "id": "PERF-008",
    "family": "PERF",
    "title": "Record all results, inputs, build profiles, and hardware details.",
    "sourceLine": 475,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-rust-perf/evidence.md: every row records command + observed numbers",
+    "docs/goal-rust-perf/state.md amendment table records host, dotnet and cargo versions"
+   ],
+   "note": "Results and build profiles are recorded; hardware details (CPU/RAM) and the raw per-iteration inputs are not."
   },
   {
    "id": "PERF-009",
    "family": "PERF",
    "title": "Meet the existing migration target of at least 80% of reference throughput, unless a specific deviation is approved.",
    "sourceLine": 476,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-rust-perf/state.md: mul 22.1 vs 19.5 ms (1.13x behind), div 132 vs 140 (ahead), factorial 47 vs 85 (ahead), parse 3.2 vs 0.99 (3.2x behind)"
+   ],
+   "note": "Most metrics are at or above the 80% target; parse is at ~31% of the reference throughput and no deviation has been approved."
   },
   {
    "id": "PERF-010",
    "family": "PERF",
    "title": "Never replace a correctness failure with a performance-based justification.",
    "sourceLine": 477,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-rust-perf/goal.md hard constraint C5: tests must not be weakened to reach a target",
+    "docs/goal-rust-perf/goal.md amendment DEC-005: completion judged on parity, not thresholds",
+    "`cargo run --release -p lovelace-corpus` exit 0 (214/214) unchanged during perf work"
+   ],
+   "note": "No correctness failure has been replaced by a performance justification; the rule is recorded but no automated gate enforces it."
   },
   {
    "id": "PLUG-001",
    "family": "PLUG",
    "title": "Implement the functional equivalent of IModusPlugin and IModusContext.",
    "sourceLine": 246,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "rust/lovelace-lang/src/modus.rs: ModusPlugin/ModusHost with registration, descriptors and arity",
+    "`lovelace-lang::round67_modus::plugin_load_registers_kernel_and_dispatch_runs`"
+   ],
    "note": ""
   },
   {
@@ -1942,10 +2401,14 @@
    "family": "PLUG",
    "title": "Preserve explicit per-host plugin loading.",
    "sourceLine": 247,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::round67_modus::dsp_plugin_unregistered_engine_refuses_fft`",
+    "`lovelace-lang::round67_modus::dsp_plugin_loaded_through_modus_seam_registers_dsp_builtins`",
+    "`lovelace-lang::round67_modus::dsp_plugin_loaded_twice_is_refused`"
+   ],
    "note": ""
   },
   {
@@ -1953,10 +2416,14 @@
    "family": "PLUG",
    "title": "Preserve per-engine plugin state; assumptions from one engine must never leak into another.",
    "sourceLine": 248,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::round67_modus::assumption_committed_while_a_is_running_does_not_decide_b`",
+    "`lovelace-lang::round67_modus::caller_installed_assumption_scope_keeps_precedence_inside_an_engine_evaluation`",
+    "`lovelace-lang::assumptions_round35::engines_keep_their_own_assumption_sets`"
+   ],
    "note": ""
   },
   {
@@ -1968,19 +2435,24 @@
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: capabilities fixture (name, category, arity, parameters, signature, description, examples, related)",
+    "`lovelace-lang::help::tests::every_builtin_has_complete_metadata`"
    ],
-   "note": "Builtin registration metadata (name, category, arity, parameters, signature, summary, examples, related) matches in capabilities and the functions array."
+   "note": ""
   },
   {
    "id": "PLUG-005",
    "family": "PLUG",
    "title": "Preserve typed-array field and kernel registration.",
    "sourceLine": 250,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "rust/lovelace-lang/src/modus.rs: ModusHost::register_kernel<T: KernelScalar> and FieldKernel",
+    "`lovelace-lang::round67_modus::plugin_load_registers_kernel_and_dispatch_runs`",
+    "`lovelace-lang::round67_modus::dispatch_unsupported_element_type_falls_back`"
+   ],
    "note": ""
   },
   {
@@ -1988,10 +2460,14 @@
    "family": "PLUG",
    "title": "Keep value conversions owned by the host/kernel boundary.",
    "sourceLine": 251,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::round67_modus::enum_value_round_trips_through_the_modus_seam`",
+    "`lovelace-lang::round67_modus::record_crosses_the_modus_plugin_boundary`",
+    "`lovelace-lang::round67_modus::coercion_failure_on_an_engine_internal_value_stays_internal`"
+   ],
    "note": ""
   },
   {
@@ -2003,31 +2479,39 @@
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: capabilities fixture compares the complete registry through the envelope",
+    "`lovelace-lang::help::tests::funcs_lists_every_builtin_under_a_category`"
    ],
-   "note": "The registry is compared through the capabilities fixture and the envelope functions array; a dedicated registry diff tool is not built."
+   "note": "The registry is compared through the capabilities fixture; there is still no dedicated C#-vs-Rust registry diff tool."
   },
   {
    "id": "PLUG-008",
    "family": "PLUG",
    "title": "Verify plugin behavior under multiple concurrently active engines.",
    "sourceLine": 253,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::context_round56::parallel_function_creation_no_duplicate_ids`",
+    "`lovelace-lang::context_round56::two_concurrent_scopes_are_isolated`",
+    "`lovelace-lang::round67_modus::assumption_committed_while_a_is_running_does_not_decide_b`"
+   ],
+   "note": "Two concurrently active engines with a shared plugin instance are exercised."
   },
   {
    "id": "PROOF-001",
    "family": "PROOF",
    "title": "Preserve the pinned Lean project and ensure it builds.",
    "sourceLine": 438,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lake build` in Lovelace.Proofs exit 0: 'Build completed successfully (9 jobs)' (Lean v4.33.1 installed from the pinned lean-toolchain)",
+    "Lovelace.Proofs/lakefile.lean + six modules (Basic, Addition, Subtraction, Multiplication, Division, Representation)"
+   ],
+   "note": "The pinned Lean project builds; the theorem-to-Rust mapping (PROOF-002..004) does not exist."
   },
   {
    "id": "PROOF-002",
@@ -2038,7 +2522,7 @@
    "owner": "phase-7",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No mapping from the Lean theorems to Rust implementation-boundary property tests exists."
   },
   {
    "id": "PROOF-003",
@@ -2049,7 +2533,7 @@
    "owner": "phase-7",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No document relates the Rust numeric representation (base-2^64 limbs / exact decimals) to the Lean proof model."
   },
   {
    "id": "PROOF-004",
@@ -2060,17 +2544,21 @@
    "owner": "phase-7",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No exhaustive small-domain arithmetic verification runs in CI; the C#/Rust suites use sampled cases."
   },
   {
    "id": "REAL-001",
    "family": "REAL",
    "title": "Preserve arbitrary decimal precision and exactness metadata.",
    "sourceLine": 178,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-real::tests::Pi_GivenFifty_TruncatesRatherThanRounds`",
+    "`lovelace-real::round29_real_batch::real_period_start_and_exactness_flip_at_the_computation_cap`",
+    "`cargo test -p lovelace-real` (2487 tests, exit 0)"
+   ],
    "note": ""
   },
   {
@@ -2078,10 +2566,14 @@
    "family": "REAL",
    "title": "Preserve repeating-decimal notation, including shortest-period canonicalization.",
    "sourceLine": 179,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-real::real_parity_batch::div_GivenOneBySeven_ReturnsPeriod142857`",
+    "`lovelace-real::real_parity_batch::div_GivenOneBySix_ReturnsMixedPeriod`",
+    "`lovelace-real::real_parity_round7::r7_conversion_0_27_02_is_107_over_396`"
+   ],
    "note": ""
   },
   {
@@ -2089,10 +2581,13 @@
    "family": "REAL",
    "title": "Match exactness propagation through operations and conversions.",
    "sourceLine": 180,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-real::round30_real_batch::division_and_its_multiplication_twin_agree_on_value_and_exactness`",
+    "`lovelace-real::round31_trig::special_angles_are_still_exact_at_every_precision`"
+   ],
    "note": ""
   },
   {
@@ -2100,10 +2595,14 @@
    "family": "REAL",
    "title": "Preserve rounding, truncation, guard-digit, and computation-cap semantics.",
    "sourceLine": 181,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-real::round34_inexact_division::the_reference_truncates_a_period_that_closes_exactly_at_the_cap`",
+    "`lovelace-real::real_parity_batch::sqrt_GivenPerfectSquareFour_RemainsExactWithGuardDigits`",
+    "`lovelace-real::tests::Pi_GivenFifty_TruncatesRatherThanRounds`"
+   ],
    "note": ""
   },
   {
@@ -2111,10 +2610,14 @@
    "family": "REAL",
    "title": "Preserve precision changes during execution and their scope.",
    "sourceLine": 182,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-real::round39_real_tests::pi_given_nested_precision_scopes_outer_scope_restored_after_inner_disposes`",
+    "`lovelace-real::round66_resweep::with_precision_scope_restores_the_global_state`",
+    "`lovelace-lang::context_round56::two_concurrent_scopes_are_isolated`"
+   ],
    "note": ""
   },
   {
@@ -2122,10 +2625,14 @@
    "family": "REAL",
    "title": "Implement and verify sqrt, pi, powers, and supported transcendental functions.",
    "sourceLine": 183,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-real::real_parity_batch::sqrt_GivenFive_Matches1000KnownDigits`",
+    "`lovelace-real::real_parity_batch::pi_GivenFiftyDigits_MatchesReference`",
+    "`lovelace-real::round26_trig_parity::precision_oracle_sin_of_one_is_correct_at_every_requested_count`"
+   ],
    "note": ""
   },
   {
@@ -2133,21 +2640,29 @@
    "family": "REAL",
    "title": "Test precision boundaries at 8, 16, 20, 50, 1,000, and 2,500 decimal places.",
    "sourceLine": 184,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-real::round36_precbench::sqrt_given_two_at_p8_and_p16_produce_different_digit_counts`",
+    "`lovelace-real::real_parity_batch::mul_p1_q50`",
+    "`lovelace-real::real_parity_batch::sqrt_GivenFive_Matches1000KnownDigits`"
+   ],
+   "note": "Boundaries at 8, 16, 20, 50 and 1000 places are exercised; no 2500-place test exists (grep for 2500 in rust/lovelace-real returns nothing)."
   },
   {
    "id": "REAL-008",
    "family": "REAL",
    "title": "Preserve the distinction between exact and inexact identity results.",
    "sourceLine": 185,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-real::round31_trig::special_angles_are_still_exact_at_every_precision`",
+    "`lovelace-lang::round26_evalf_parity::evalf_function_of_a_truncated_value_publishes_exact_false`",
+    "`lovelace-real::round30_real_batch::division_and_its_multiplication_twin_agree_on_value_and_exactness`"
+   ],
    "note": ""
   },
   {
@@ -2159,20 +2674,25 @@
    "owner": "phase-3",
    "phase": 0,
    "evidence": [
-    "EVD-032"
+    "`lovelace-real::real_parity_round7::r7_conversion_0_1_6_is_one_sixth`",
+    "`lovelace-real::real_parity_round7::r7_conversion_0_27_02_is_107_over_396`",
+    "`node parity/tools/gate-fixtures.mjs` exit 0: exact-rational structured projection"
    ],
-   "note": "No dedicated Rational type (consolidated into Real, permitted by S1.2), but the projection publishes the correct lowest-terms numerator/denominator for every probed periodic value, including preperiods."
+   "note": "No dedicated Rational type (consolidated into Real, permitted by S1.2), but the projection publishes lowest-terms numerator/denominator for every probed periodic value."
   },
   {
    "id": "REAL-010",
    "family": "REAL",
    "title": "Add direct Rational tests, since the C# project lacks a dedicated test suite.",
    "sourceLine": 187,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-3",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-real::real_parity_round7` (1089 tests: conversion, periodic arithmetic, parse/format)",
+    "`lovelace-real::round30_real_batch::division_and_its_multiplication_twin_agree_on_value_and_exactness`"
+   ],
+   "note": "The C# Rational project has no dedicated test suite; direct Rust rational-value tests exist on the consolidated Real surface."
   },
   {
    "id": "REQ-001",
@@ -2183,10 +2703,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-004",
-    "EVD-013"
+    "`powershell -File parity/build-oracle.ps1 -Verify` exit 0: commit 1cc28f2..., pinned sources clean, dll sha256 383527d8..."
    ],
-   "note": "Immutable oracle pinned at 1cc28f2; verify script refuses dirty C# sources."
+   "note": "Immutable oracle pinned in parity/oracle.json and re-verified; the verify script refuses a dirty pinned tree."
   },
   {
    "id": "REQ-002",
@@ -2197,32 +2716,40 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-010",
-    "EVD-025"
+    "`node parity/tools/gate-projects.mjs` exit 0: 19/19 C# production projects dispositioned",
+    "`node parity/tools/gate-manifest.mjs` exit 0: 6209/6209 census cases dispositioned (6090 ported, 119 user-approved exclusions)",
+    "`node parity/tools/gate-census.mjs` exit 0: 2105 methods / 6209 cases / 15 projects"
    ],
-   "note": "Projects and tests are inventoried with dispositions; public C# types/methods are not yet inventoried one by one (ECO-003)."
+   "note": "Projects and test cases are inventoried with dispositions; public C# types/methods are still not enumerated one by one (ECO-003)."
   },
   {
    "id": "REQ-003",
    "family": "REQ",
    "title": "Observable equivalence: Compare results at public boundaries; internal algorithms and memory representations may differ.",
    "sourceLine": 35,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`node parity/tools/gate-fixtures.mjs` exit 0 (oracle 20/20, rust 20/20) compares public envelopes only",
+    "`node parity/tools/gate-cli.mjs` exit 0 (16/16) compares the CLI surface",
+    "`cargo run --release -p lovelace-corpus` exit 0 (corpus 214/214)"
+   ],
+   "note": "Verification compares public boundaries, and internal representations differ freely; documented public differences remain (parity/final-acceptance.md lists four; OQ-013 committed-state), so observable equivalence is not complete."
   },
   {
    "id": "REQ-004",
    "family": "REQ",
    "title": "Strict parity: Mathematical equivalence alone is insufficient when the public contract guarantees a specific textual or structured representation.",
    "sourceLine": 36,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`node parity/tools/gate-fixtures.mjs` exit 0 compares display/typed/structured representations structurally",
+    "`cargo run --release -p lovelace-corpus` exit 0 (214/214 byte-level corpus)"
+   ],
+   "note": "Textual/structured comparison is enforced, but the four recorded deviations in docs/goal-parity-contract/final-acceptance.md are not user-approved and no gate fails on them."
   },
   {
    "id": "REQ-005",
@@ -2233,56 +2760,71 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-009"
+    "`node parity/tools/gate-requirements.mjs` exit 0: 262 requirements + 7 obligations, no met row without evidence",
+    "parity/manifest.toml: 0 deferred rows; parity/requirements.json records every ID"
    ],
-   "note": "parity/requirements.json records all 262 IDs plus 7 ID-less obligations with owners and phases."
+   "note": "The ledger and manifest are the machine-readable coverage surfaces; the requirements gate fails closed on a missing ID or a met row with no evidence."
   },
   {
    "id": "REQ-006",
    "family": "REQ",
    "title": "Explicit deviations: Intentional behavioral changes require a documented decision, a reason, affected tests, and the user's approval.",
    "sourceLine": 38,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-parity-contract/final-acceptance.md 'Known deviations from the reference' (4 entries with reasons)",
+    "docs/goal-desktop-v4/deviations.md DEV-001..008 with owners and review criteria",
+    "docs/goal-parity-contract/journal.md DEC-002 (Real::atan2 change kept, disclosed)"
+   ],
+   "note": "Deviations are documented with reasons, but the four parity deviations have no recorded user approval and no affected-test list; the desktop deviations are separate from contract-v2."
   },
   {
    "id": "REQ-007",
    "family": "REQ",
    "title": "Independent verification: Implementation agents cannot be the sole authority validating their own work.",
    "sourceLine": 39,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-parity-contract/intent-audit.md (independent intent audit)",
+    "docs/goal-parity-contract/round-101/mutation-anchors.md: 12/12 mutations detected; earlier agent claims re-run",
+    "`node parity/tools/gate-manifest.mjs` resolves every claimed Rust test against a measured inventory"
+   ],
+   "note": "Independent falsification exists (intent audit, mutation gate, gate re-runs); not every implementation claim is re-derived by a second party, and implementation agents still author most evidence."
   },
   {
    "id": "REQ-008",
    "family": "REQ",
    "title": "Fail-closed gates: Missing tests, missing reference binaries, skipped oracle runs, and unexecuted checks must not count as passes.",
    "sourceLine": 40,
-   "status": "partial",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-015",
-    "EVD-014"
+    "`node parity/tools/gate-manifest.mjs` exit 0 refuses a stale inventory and a claimed test that is not in it",
+    "`node parity/diff/run.mjs --cases 0` exit 2 (empty corpus fails closed)",
+    "`node parity/tools/gate-requirements.mjs` exit 0 refuses met-with-no-evidence",
+    "`powershell -File parity/mutate.ps1` exit 0: 12/12 injected faults detected, 12 restored trees pass"
    ],
-   "note": "Fail-closed guards exist for the oracle and the differential corpus; not every gate is falsified yet."
+   "note": "Missing tests, stale inventories, an absent oracle and an empty corpus all fail closed; the mutation gate exercises the gate itself."
   },
   {
    "id": "REQ-009",
    "family": "REQ",
    "title": "No premature cutover: C# remains the reference implementation until every mandatory gate passes.",
    "sourceLine": 41,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`powershell -File parity/build-oracle.ps1 -Verify` exit 0: C# oracle remains the reference",
+    "`node parity/tools/gate-fixtures.mjs` exit 0 and `node parity/tools/gate-cli.mjs` exit 0 compare against that oracle",
+    "HEAD 112041b contains no cutover; the C# tree and pinned sources are intact"
+   ],
+   "note": "No cutover has occurred: every gate still compares the Rust implementation against the frozen C# oracle, and the C# reference is recoverable at its pinned commit."
   },
   {
    "id": "REQ-010",
@@ -2293,7 +2835,7 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No CI workflow builds or tests the Rust workspace from a clean checkout (.github/workflows/ci.yml covers the C# suites only), so clean-checkout reproduction on CI is not demonstrated."
   },
   {
    "id": "RUN-001",
@@ -2304,7 +2846,8 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-001 row compares --eval against the oracle",
+    "`cargo test -p lovelace-run` (430 tests, suite exit 0)"
    ],
    "note": ""
   },
@@ -2317,7 +2860,8 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-002 --file row",
+    "`lovelace-run::script_source` position tests (15 tests)"
    ],
    "note": ""
   },
@@ -2330,10 +2874,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022",
-    "EVD-012"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-003 --stdin row matches the oracle on piped source",
+    "`lovelace-lang::round27_batch::a_leading_byte_order_mark_is_source_text_not_a_parse_error`"
    ],
-   "note": "Piped source works and matches the oracle; BOM handling is a known oracle/spec conflict (OQ-002), so the row pins the oracle behaviour."
+   "note": "Piped source matches; BOM handling remains a recorded oracle/spec conflict (OQ-002), so the row pins the oracle behaviour rather than resolving it."
   },
   {
    "id": "RUN-004",
@@ -2344,7 +2888,7 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-004 bare script path row"
    ],
    "note": ""
   },
@@ -2357,7 +2901,7 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-005 --json/--text row"
    ],
    "note": ""
   },
@@ -2370,7 +2914,7 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-006 --omit-functions/--omit-variables row"
    ],
    "note": ""
   },
@@ -2383,7 +2927,8 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-007 --functions row",
+    "`lovelace-run::wire_batch::registry_listing_answers_without_evaluating`"
    ],
    "note": ""
   },
@@ -2396,7 +2941,8 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-008 --function row",
+    "`lovelace-run::wire_batch::registry_describes_det_with_the_declared_metadata`"
    ],
    "note": ""
   },
@@ -2409,7 +2955,8 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-009 --function-limit row",
+    "`lovelace-run::wire_batch::registry_listing_is_ordinal_and_stable`"
    ],
    "note": ""
   },
@@ -2422,9 +2969,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-027"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-010 --cancel-after row",
+    "`lovelace-lang::cancellation_round18` (15 tests)"
    ],
-   "note": "Deadline, cancellation state (budgetMs/exceeded/stopped) and budget accounting match. The envelope-level committed-state difference (_ published for the completed statement) remains open as OQ-013/ENG-006."
+   "note": "Deadline, cancellation state and budget accounting match. The envelope-level committed-state difference remains open as OQ-013/ENG-006."
   },
   {
    "id": "RUN-011",
@@ -2435,7 +2983,8 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-011 --print-budget row",
+    "`lovelace-lang::round93_eval_print` print-budget tests"
    ],
    "note": ""
   },
@@ -2448,9 +2997,11 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-027"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-012 --plot-dir/--plot-file row",
+    "`lovelace-run::plot_surface_wire` artifact tests",
+    "`docs/goal-parity-contract/round-87/plot-svg.md`: plot SVG now byte-identical to the oracle (14636 bytes)"
    ],
-   "note": "Plot placement and naming match (result path, plot.path, artifacts kind/path). SVG content parity remains open as OQ-012 / WIRE-015 / DESK-022."
+   "note": "Plot placement and naming match; the rendered SVG body now matches byte-for-byte per the round-87 report, though no gate compares SVG bytes."
   },
   {
    "id": "RUN-013",
@@ -2461,9 +3012,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-013 --help row"
    ],
-   "note": "--help matches the oracle observably (exit 0, usage text)."
+   "note": ""
   },
   {
    "id": "RUN-014",
@@ -2474,67 +3025,77 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-014 invalid-arguments row"
    ],
-   "note": "Invalid arguments exit 2 with a diagnostic containing the offending argument."
+   "note": ""
   },
   {
    "id": "RUST-001",
    "family": "RUST",
    "title": "cargo fmt --check passes.",
    "sourceLine": 481,
-   "status": "partial",
+   "status": "met",
    "owner": "phase-7",
    "phase": 0,
    "evidence": [
-    "EVD-023"
+    "`cargo fmt --all -- --check` exit 0 (run 2026-11-12 against the current tree)"
    ],
-   "note": "cargo-fmt is not installed for the pinned stable toolchain; the check could not be performed (unverified, not passed)."
+   "note": "Measured at HEAD 112041b (cargo fmt --all -- --check exit 0). A concurrent desktop session later wrote to rust/lovelace-desktop without committing; re-run the check after that work lands."
   },
   {
    "id": "RUST-002",
    "family": "RUST",
    "title": "Clippy passes with warnings treated as errors.",
    "sourceLine": 482,
-   "status": "partial",
+   "status": "met",
    "owner": "phase-7",
    "phase": 0,
    "evidence": [
-    "EVD-023"
+    "`cargo clippy --workspace --all-targets -- -D warnings` exit 0 (run 2026-11-12)"
    ],
-   "note": "cargo-clippy is not installed for the pinned stable toolchain; the check could not be performed (unverified, not passed)."
+   "note": "Measured at HEAD 112041b (cargo clippy --workspace --all-targets -- -D warnings exit 0). The concurrent desktop edits that followed may introduce new lints; re-run after they land."
   },
   {
    "id": "RUST-003",
    "family": "RUST",
    "title": "All tests pass in debug and release profiles.",
    "sourceLine": 483,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`cargo test --workspace` exit 0: 5666 passed, 0 failed, 1 ignored",
+    "`cargo test --workspace --release` exit 0"
+   ],
+   "note": "Measured at HEAD 112041b: debug 5666 passed / 0 failed / 1 ignored, release exit 0. The concurrent uncommitted desktop work is outside that measurement; re-run on the merged tree."
   },
   {
    "id": "RUST-004",
    "family": "RUST",
    "title": "No floating point is used in the exact numeric value path.",
    "sourceLine": 484,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "rust/lovelace-int/src/lib.rs: `#![forbid(unsafe_code)]` and no f64/f32 in the value path",
+    "rust/lovelace-nat/src/lib.rs:431: `approx_digits` uses `(top as f64).log10()` to choose a multiplication split point"
+   ],
+   "note": "No number is represented or compared in floating point and arithmetic/parsing are exact; one f64 log10 estimate remains in the Nat multiplication split heuristic."
   },
   {
    "id": "RUST-005",
    "family": "RUST",
    "title": "Every unsafe block is isolated, justified, and reviewed.",
    "sourceLine": 485,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "rust/lovelace-desktop/src/main.rs: unsafe confined to src/win32 FFI; `#![cfg_attr(not(windows), forbid(unsafe_code))]`",
+    "60 SAFETY comments in rust/lovelace-desktop/src/win32",
+    "rust/lovelace-array/src/lib.rs and rust/lovelace-int/src/lib.rs: `#![forbid(unsafe_code)]`"
+   ],
    "note": ""
   },
   {
@@ -2542,33 +3103,43 @@
    "family": "RUST",
    "title": "Dependencies are audited for license and security advisories.",
    "sourceLine": 486,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "rust/lovelace-desktop/Cargo.toml: eframe/egui/resvg are the only third-party dependencies; the core crates declare none",
+    "Cargo.lock is committed",
+    "No license/security-advisory audit artifact exists in the tree"
+   ],
+   "note": "The dependency set is small and visible; no `cargo audit`/license report has been produced."
   },
   {
    "id": "RUST-007",
    "family": "RUST",
    "title": "Public APIs have usable documentation and examples.",
    "sourceLine": 487,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "the workspace lints `missing_docs = warn`; public items carry doc comments",
+    "rust/examples/roundtrip.rs is the only Rust example"
+   ],
+   "note": "Docs and one example exist, but not every public API has a runnable example or a doc test (doc-tests run 0 tests)."
   },
   {
    "id": "RUST-008",
    "family": "RUST",
    "title": "Build and test workflows work from a clean checkout.",
    "sourceLine": 488,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-7",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`cargo test --workspace` exit 0 and `cargo build` succeed with the repo-pinned toolchain in .toolchain",
+    "no CI job checks out the repo and builds the Rust workspace"
+   ],
+   "note": "The build/test workflow works in this prepared checkout; a clean checkout is not demonstrated (the toolchain is vendored under .toolchain and Cargo.lock is modified)."
   },
   {
    "id": "RUST-009",
@@ -2579,7 +3150,7 @@
    "owner": "phase-7",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No release artifacts or reproducible-build pipeline exist for any target; only local debug/release builds under rust/target."
   },
   {
    "id": "RUST-010",
@@ -2590,28 +3161,35 @@
    "owner": "phase-7",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No Rust CI job exists (.github/workflows/ci.yml is C#-only), so no CI test exercises the published Rust binaries."
   },
   {
    "id": "STAT-001",
    "family": "STAT",
    "title": "Preserve the plugin's identity and opt-in registration.",
    "sourceLine": 309,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::round67_modus::plugin_load_registers_kernel_and_dispatch_runs` (a plugin named Lovelace.Statistics loads explicitly and registers its kernel)",
+    "`lovelace-lang::round67_modus::dsp_plugin_unregistered_engine_refuses_fft` (opt-in loading is enforced)"
+   ],
+   "note": "The identity and opt-in registration are modelled by a test-local plugin (round67_modus.rs); no production Statistics plugin is shipped."
   },
   {
    "id": "STAT-002",
    "family": "STAT",
    "title": "Provide equivalent typed-array kernel dispatch.",
    "sourceLine": 310,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "rust/lovelace-lang/src/modus.rs: ModusHost::register_kernel / try_dispatch_kernel<T: KernelScalar>",
+    "`lovelace-lang::round67_modus::plugin_load_registers_kernel_and_dispatch_runs`",
+    "`lovelace-lang::round67_modus::kernel_declines_unsupported_op`"
+   ],
    "note": ""
   },
   {
@@ -2619,10 +3197,13 @@
    "family": "STAT",
    "title": "Preserve exact Real-field addition and active precision.",
    "sourceLine": 311,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::round67_modus::real_add_kernel_matches_direct_real_addition`",
+    "rust/lovelace-lang/src/round67_modus.rs::AddRealKernel (exact Real::add per slot)"
+   ],
    "note": ""
   },
   {
@@ -2630,21 +3211,29 @@
    "family": "STAT",
    "title": "Test fallback behavior and verify equivalence between the specialized and generic array paths.",
    "sourceLine": 312,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`lovelace-lang::round67_modus::dispatch_unsupported_element_type_falls_back`",
+    "`lovelace-lang::round67_modus::kernel_declines_unsupported_op`",
+    "`lovelace-lang::round67_modus::real_add_kernel_matches_direct_real_addition`"
+   ],
+   "note": "Fallback for unsupported element types/ops and equivalence of the specialized path are both asserted."
   },
   {
    "id": "SYM-001",
    "family": "SYM",
    "title": "Preserve expression kinds, domains, assumptions, and exactness.",
    "sourceLine": 259,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`cargo test -p lovelace-symbolics` (196 tests, exit 0)",
+    "`lovelace-symbolics::assumptions::tests::expression_properties_are_proved_from_their_shape`",
+    "`lovelace-lang::suite_parity_batch` symbolic record fixtures"
+   ],
    "note": ""
   },
   {
@@ -2652,10 +3241,14 @@
    "family": "SYM",
    "title": "Match canonical ordering and hashing-independent canonicalization.",
    "sourceLine": 260,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-symbolics::printing_round16::canonical_order_is_invariant_under_canonical_parse`",
+    "`lovelace-symbolics::printing_round16::canonical_text_is_idempotent_for_a_fixed_corpus`",
+    "`lovelace-lang::printing_round17::acceptancetests_term_order_is_antisymmetric_and_numbers_first`"
+   ],
    "note": ""
   },
   {
@@ -2663,10 +3256,13 @@
    "family": "SYM",
    "title": "Preserve structural expression identity and interning behavior where observable.",
    "sourceLine": 261,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-symbolics::round66_resweep::acceptance_interned_equal_structure_is_the_same_value`",
+    "`lovelace-corpus::property_assertions::canonical_text_round_trips_and_reinterns`"
+   ],
    "note": ""
   },
   {
@@ -2674,10 +3270,13 @@
    "family": "SYM",
    "title": "Preserve textual and canonical expression formats.",
    "sourceLine": 262,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-symbolics::printing_round16::canonical_parse_reprints_every_expression_shape_identically`",
+    "`lovelace-symbolics::round66_resweep::acceptance_canonical_print_parse_round_trips`"
+   ],
    "note": ""
   },
   {
@@ -2685,10 +3284,14 @@
    "family": "SYM",
    "title": "Match simplification and rewriting with their applicable conditions.",
    "sourceLine": 263,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-symbolics::rational_functions::tests::cancel_reduces_the_documented_corpus`",
+    "`lovelace-lang::assumptions_round35::simplify_sqrt_square_under_real_is_abs_x`",
+    "`lovelace-symbolics::rewrite_registry::tests::shipped_patterns_match_the_reference_shapes_and_first_match_wins`"
+   ],
    "note": ""
   },
   {
@@ -2696,10 +3299,14 @@
    "family": "SYM",
    "title": "Preserve rewrite budgets, termination, trace ordering, and statuses.",
    "sourceLine": 264,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-symbolics::rewrite_registry::tests::budget_counts_applied_rewrites_and_stops_further_groups`",
+    "`lovelace-symbolics::rewrite_registry::tests::trace_disabled_keeps_conditions_and_allocates_no_steps`",
+    "`lovelace-lang::symbolics_tail_round34::diagnostic_contract_bounded_transformation_carries_budget_diagnostic`"
+   ],
    "note": ""
   },
   {
@@ -2707,10 +3314,14 @@
    "family": "SYM",
    "title": "Match substitution, expansion, factoring, collection, and cancellation.",
    "sourceLine": 265,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-symbolics::rational_functions` (13 tests: cancel/collect/factor)",
+    "`lovelace-lang::suite_parity_batch::sym_doc_023_5_algebra_expand_collect`",
+    "`lovelace-symbolics::tail_round34::acceptance_rational_normalization_and_arithmetic`"
+   ],
    "note": ""
   },
   {
@@ -2718,10 +3329,15 @@
    "family": "SYM",
    "title": "Match differentiation, integration, limits, and series.",
    "sourceLine": 266,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-symbolics::tests::Series_GivenExp_MatchesFactorialCoefficients`",
+    "`lovelace-lang::symbolics_tail_round34::acceptance_diff_product_and_chain_work`",
+    "`lovelace-lang::symbolics_tail_round34::acceptance_limit_sin_over_x_at_zero_is_one`",
+    "`lovelace-lang::round39_residue::integration_table_rows_are_exact_and_verify`"
+   ],
    "note": ""
   },
   {
@@ -2729,10 +3345,14 @@
    "family": "SYM",
    "title": "Preserve solution sets, conditions, completeness, and domain restrictions.",
    "sourceLine": 267,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::suite_parity_batch::solvecompletenesspairingtests_partial_isnevercomplete`",
+    "`lovelace-lang::symbolics_tail_round34::dx_semantic_solve_quartic_mixed_roots_is_partial_not_complete`",
+    "`lovelace-lang::round42_differential_classes::round42_inv_full_carries_the_nonzero_determinant_condition`"
+   ],
    "note": ""
   },
   {
@@ -2740,10 +3360,15 @@
    "family": "SYM",
    "title": "Match polynomial, nonlinear, system, and matrix-solving behaviors.",
    "sourceLine": 268,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-symbolics::groebner` (7 tests)",
+    "`lovelace-symbolics::symbolic_matrix` (5 tests)",
+    "`lovelace-lang::corpus_and_system_solve_round36::corpus_sym_076_linsolve_keeps_the_bareiss_division_shape`",
+    "`lovelace-lang::round92_symbolic_families::linsolvechecktests_solve3x3_verifiesbynumericsubstitution`"
+   ],
    "note": ""
   },
   {
@@ -2751,10 +3376,14 @@
    "family": "SYM",
    "title": "Match assumptions, contradiction detection, and assumption isolation.",
    "sourceLine": 269,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-symbolics::assumptions::tests::contradiction_detection_is_neither_missed_nor_invented`",
+    "`lovelace-lang::assumptions_round35::contradictory_relations_are_refused_with_the_documented_message`",
+    "`lovelace-lang::round67_modus::assumption_committed_while_a_is_running_does_not_decide_b`"
+   ],
    "note": ""
   },
   {
@@ -2762,10 +3391,14 @@
    "family": "SYM",
    "title": "Preserve all structured rich-result record types and field order.",
    "sourceLine": 270,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-run::record_schema_batch::every_produced_record_conforms_to_its_declared_schema`",
+    "`lovelace-run::record_schema_batch::diagnostic_schema_declares_the_six_frozen_fields`",
+    "`lovelace-lang::round78_structural_equality::record_identity_is_type_name_field_count_and_field_order`"
+   ],
    "note": ""
   },
   {
@@ -2773,10 +3406,13 @@
    "family": "SYM",
    "title": "Verify the complete symbolic builtin registry, including metadata.",
    "sourceLine": 271,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
+   "evidence": [
+    "`lovelace-lang::help::tests::every_builtin_has_complete_metadata`",
+    "`node parity/tools/gate-fixtures.mjs` exit 0: capabilities fixture compares the full symbolic registry"
+   ],
    "note": ""
   },
   {
@@ -2784,11 +3420,15 @@
    "family": "SYM",
    "title": "Retain the existing SymPy differential oracle as an independent correctness check.",
    "sourceLine": 272,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-4",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`.github/workflows/ci.yml` job `sympy-oracle` installs SymPy and runs DifferentialOracleTests with LOVELACE_REQUIRE_SYMPY=1",
+    "`lovelace-lang::round98_differential_oracle` (6 tests compare kernel results against SymPy 1.14 values)",
+    "docs/goal-parity-contract/final-acceptance.md: six SymPy-oracle defects fixed"
+   ],
+   "note": "The existing SymPy differential oracle is retained in CI and Rust tests compare against recorded SymPy values; the Rust side has no live SymPy bridge (CAP-003), so the oracle is not run against Rust in CI."
   },
   {
    "id": "TEST-001",
@@ -2799,20 +3439,23 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-013"
+    "parity/oracle.json: commit 1cc28f255eca6029849f880949fc7be1d40ab8af",
+    "`powershell -File parity/build-oracle.ps1 -Verify` exit 0"
    ],
-   "note": "Pinned SHA in parity/oracle.json and verified by build-oracle.ps1 -Verify."
+   "note": ""
   },
   {
    "id": "TEST-002",
    "family": "TEST",
    "title": "Build and execute the C# reference in CI.",
    "sourceLine": 397,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    ".github/workflows/ci.yml job `fast-tests` runs 14 dotnet test projects; job `aot-smoke` publishes Lovelace.Run Native AOT and executes the published binary against solve/partial/array/print/error scripts (exit 0 required)"
+   ],
+   "note": "The workflow builds and executes the C# reference in CI. No run log is stored in the repository, so this is configuration evidence, not a recorded run."
   },
   {
    "id": "TEST-003",
@@ -2823,9 +3466,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-014"
+    "`powershell -File parity/build-oracle.ps1 -Verify` exit 0 on a clean pinned tree; EVD-014 probe: an untracked C# file makes it exit 2",
+    "parity/oracle.json sources list (36 pinned production paths)"
    ],
-   "note": "Untracked or modified files in the pinned source directories make verification exit 2."
+   "note": ""
   },
   {
    "id": "TEST-004",
@@ -2836,7 +3480,7 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [],
-   "note": ""
+   "note": "No oracle-amendment record exists: a grep of docs and parity for an amendment log finds only the contract line that requires one."
   },
   {
    "id": "TEST-005",
@@ -2847,9 +3491,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-013"
+    "parity/build/oracle-verified.json: commit, dotnet 10.0.103 and dll sha256 383527d8...",
+    "`powershell -File parity/build-oracle.ps1 -Verify` exit 0"
    ],
-   "note": "oracle-verified.json records the commit and the DLL SHA-256; the binary itself is not archived."
+   "note": "The commit and the DLL hash are recorded; neither the DLL nor the build inputs are archived, so the oracle binary still depends on a local build."
   },
   {
    "id": "TEST-006",
@@ -2860,24 +3505,24 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-007"
+    "`node parity/tools/gate-census.mjs` exit 0: 2105 methods / 6209 cases / 15 projects, deterministic census",
+    "parity/census.json"
    ],
-   "note": "parity/census.json is generated by a reflection tool: 15 projects, 2105 methods, 6209 cases, deterministic SHA."
+   "note": ""
   },
   {
    "id": "TEST-007",
    "family": "TEST",
    "title": "Maintain parity/manifest.toml mapping every C# test to a Rust equivalent or approved exclusion.",
    "sourceLine": 405,
-   "status": "partial",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-008",
-    "EVD-031",
-    "EVD-034"
+    "`node parity/tools/gate-manifest.mjs` exit 0: 6209/6209 cases dispositioned (6090 ported, 119 user-approved exclusions, 0 deferred)",
+    "parity/manifest.toml"
    ],
-   "note": "Every case is dispositioned; 3 074 map to a Rust test (49.51 %); 3 135 remain deferred, so the strict mapping obligation is still open (OQ-014)."
+   "note": "Every C# test case now maps to a Rust test or a user-approved exclusion; the strict mapping obligation is closed (OQ-014)."
   },
   {
    "id": "TEST-008",
@@ -2888,9 +3533,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-028"
+    "`node parity/tools/gate-manifest.mjs` exit 0 resolves all 6090 claimed Rust tests against parity/rust-tests.json and requires suite exit 0",
+    "`cargo test --workspace` exit 0 (5666 passed, 0 failed)"
    ],
-   "note": "The manifest gate resolves all 262 claimed Rust tests against the measured inventory and requires the suite exit code to be 0."
+   "note": "All 6090 claimed tests resolved against the measured inventory and the suite exited 0 when gate-manifest ran green at 21:38. A concurrent desktop session subsequently edited rust/lovelace-desktop, making the inventory stale and gate-manifest fail closed; rerun parity/gen-rust-tests.ps1 before quoting a fresh gate result. The mapping itself is unchanged."
   },
   {
    "id": "TEST-009",
@@ -2901,33 +3547,38 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-007"
+    "`node parity/tools/gate-manifest.mjs` rejects duplicate ids, census cases without a disposition, claimed tests that are absent, and a stale sources hash",
+    "`node parity/tools/gate-census.mjs` rejects duplicate census ids"
    ],
-   "note": "The census and manifest gates reject duplicate ids and orphan rows; rename/ignore detection is not implemented."
+   "note": "Missing, duplicate and stale cases are detected. Renamed tests are caught only through the stale-inventory hash, and an ignored test is not rejected: rust-tests.json records 1 ignored test and the gate does not distinguish it."
   },
   {
    "id": "TEST-010",
    "family": "TEST",
    "title": "Require explicit reasons for every exclusion.",
    "sourceLine": 408,
-   "status": "partial",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-008"
+    "`node parity/tools/gate-manifest.mjs` exit 0: 119 exclusions, each with a non-empty reason and owner=user",
+    "parity/coverage.md lists the excluded cases"
    ],
-   "note": "An exclusion requires a reason and owner=user; no exclusion exists yet, so the rule is unexercised."
+   "note": "The exclusion rule is now exercised, not just declared."
   },
   {
    "id": "TEST-011",
    "family": "TEST",
    "title": "Disallow weakening assertions while porting tests.",
    "sourceLine": 409,
-   "status": "unmet",
+   "status": "partial",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "docs/goal-parity-contract/journal.md EVD-029: a sample of ported pairs was opened and compared assertion by assertion",
+    "docs/goal-parity-contract/journal.md VAL-004: nine weak mappings were re-opened and repaired"
+   ],
+   "note": "Spot checks and one systematic re-open exist, but there is no gate that rejects a ported test whose assertions are weaker than the C# original."
   },
   {
    "id": "TEST-012",
@@ -2938,20 +3589,24 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-028"
+    "parity/coverage.md: cases/ported/deferred/coverage per C# subsystem, generated from the manifest the gate reads",
+    "`node parity/tools/gate-manifest.mjs` exit 0"
    ],
-   "note": "parity/coverage.md reports cases, ported, deferred and coverage per C# subsystem from the manifest the gate reads."
+   "note": ""
   },
   {
    "id": "TEST-013",
    "family": "TEST",
    "title": "Require the inventory to remain complete when the oracle changes.",
    "sourceLine": 411,
-   "status": "unmet",
+   "status": "met",
    "owner": "dsh-cycle-8",
    "phase": 0,
-   "evidence": [],
-   "note": ""
+   "evidence": [
+    "`node parity/tools/gate-census.mjs` requires census.oracle.commit == parity/oracle.json commit and one census project per *.Tests directory",
+    "`node parity/tools/gate-manifest.mjs` requires every census id to have a disposition and the manifest oracle to equal the census oracle"
+   ],
+   "note": "Changing the oracle without regenerating the census/manifest fails both gates, so the inventory cannot silently go stale."
   },
   {
    "id": "WIRE-001",
@@ -2962,9 +3617,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0 (oracle 20/20, rust 20/20) compares protocolVersion/symbolicFormatVersion/mathIrVersion in every fixture"
    ],
-   "note": "protocolVersion/symbolicFormatVersion/mathIrVersion match the oracle in 19 of 20 fixtures."
+   "note": "All 20 fixtures now match, including the complex fixture."
   },
   {
    "id": "WIRE-002",
@@ -2975,9 +3630,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-fixtures.mjs` exit 0 (20/20)",
+    "`node parity/tools/gate-cli.mjs` exit 0 (16/16)"
    ],
-   "note": "Every success-envelope field (result, variables, functions, output, artifacts, revision, timing) is compared structurally on 12 green CLI rows."
+   "note": ""
   },
   {
    "id": "WIRE-003",
@@ -2988,9 +3644,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: error_envelope and solve_nosolutions fixtures",
+    "`lovelace-run::error_taxonomy_batch` (24 tests)"
    ],
-   "note": "Error envelopes match on RUN-002 and fixtures/error_envelope (code, category, message, recoverable, diagnostics)."
+   "note": ""
   },
   {
    "id": "WIRE-004",
@@ -3001,9 +3658,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: absent_field fixture distinguishes omitted/Null/empty"
    ],
-   "note": "fixtures/absent_field passes: omitted field vs Null vs empty collection are distinguished."
+   "note": ""
   },
   {
    "id": "WIRE-005",
@@ -3014,10 +3671,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-025",
-    "EVD-032"
+    "`node parity/tools/gate-fixtures.mjs` exit 0 (20/20), including the complex, matrix_inverse_result and exact-rational cases"
    ],
-   "note": "Every value-kind projection in the 20 fixtures matches, and the exact-rational counterexample (1/6) now matches on the wire."
+   "note": ""
   },
   {
    "id": "WIRE-006",
@@ -3028,9 +3684,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: record fixtures cross SolveStatus.Partial and Completeness.Partial as Enum values"
    ],
-   "note": "The record fixtures cross status/completeness/exactness as declared Enum types, so SolveStatus.Partial and Completeness.Partial are distinguishable."
+   "note": ""
   },
   {
    "id": "WIRE-007",
@@ -3041,9 +3697,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: record field arrays match element by element"
    ],
-   "note": "Record fields are an ordered array and match element by element."
+   "note": ""
   },
   {
    "id": "WIRE-008",
@@ -3054,9 +3710,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: display/typed/structured compared independently"
    ],
-   "note": "display, typed and structured are compared independently in every fixture."
+   "note": ""
   },
   {
    "id": "WIRE-009",
@@ -3067,9 +3723,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: print_purity fixture"
    ],
-   "note": "print_purity passes: print output is captured in the envelope and stdout is one JSON document."
+   "note": ""
   },
   {
    "id": "WIRE-010",
@@ -3080,9 +3736,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: elapsedTime and per-statement timings present in every fixture"
    ],
-   "note": "elapsedTime and per-statement timings are present with the same shape (values are the declared volatile keys)."
+   "note": ""
   },
   {
    "id": "WIRE-011",
@@ -3093,9 +3749,9 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0 exercises exit codes 0, 1 and 2"
    ],
-   "note": "Exit codes 0, 1 and 2 are exercised and compared by the CLI gate."
+   "note": ""
   },
   {
    "id": "WIRE-012",
@@ -3106,9 +3762,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: error_envelope UTF-16 positions",
+    "`lovelace-run::script_source` line/column tests"
    ],
-   "note": "UTF-16 positions/line/column match on fixtures/error_envelope and RUN-002."
+   "note": ""
   },
   {
    "id": "WIRE-013",
@@ -3119,9 +3776,10 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-021"
+    "`node parity/tools/gate-fixtures.mjs` exit 0 (parsed JSON equality)",
+    "`lovelace-json::tests::Write_GivenNonAscii_EscapesAsUnicode`"
    ],
-   "note": "Parsed JSON matches, and a raw probe showed both runners escaping non-ASCII as \\uXXXX; byte-for-byte output is not gated."
+   "note": "Parsed JSON matches and both writers escape non-ASCII as \\uXXXX, but no gate compares raw output bytes, so byte compatibility is not proven."
   },
   {
    "id": "WIRE-014",
@@ -3132,9 +3790,11 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-022"
+    "`node parity/tools/gate-cli.mjs` exit 0: RUN-011 truncation row",
+    "`lovelace-lang::printing_round17::printbudgettests_node_budget_reports_reason_count_budget_and_partial_result`",
+    "`lovelace-lang::round93_eval_print::printbudgettests_depth_budget_reports_depth_limit`"
    ],
-   "note": "--print-budget is implemented and matches the oracle on RUN-011; depth and precision caps are not separately exercised."
+   "note": "Depth and node budgets are exercised and differentiated; a separate precision-cap truncation is not exercised through the wire."
   },
   {
    "id": "WIRE-015",
@@ -3145,9 +3805,11 @@
    "owner": "dsh-cycle-8",
    "phase": 0,
    "evidence": [
-    "EVD-027"
+    "`node parity/tools/gate-fixtures.mjs` exit 0: artifact fields compared",
+    "`lovelace-run::plot_surface_wire::a_writable_plot_file_is_still_written_after_the_refusals`",
+    "docs/goal-parity-contract/round-87/plot-svg.md"
    ],
-   "note": "Artifact kind/path/naming now match; the rendered SVG content does not (OQ-012)."
+   "note": "Artifact kind/path/naming and failure-after-plot behaviour match; the SVG bytes are recorded as byte-identical in round-87 but no automated gate compares them."
   }
  ]
 }
